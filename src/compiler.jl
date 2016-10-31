@@ -1,46 +1,135 @@
 using PyCall
 @pyimport QGL
-@pyimport QGL.PatternUtils as QGL_PatternUtils
 
-function compile_to_hardware(seqs, base_filename; suffix="")
+import Base.show
 
-	# save input code to file as metadata
-	QGL.Compiler[:save_code](seqs, base_filename*suffix)
+include("pulses.jl")
+include("controlflow.jl")
 
-	# insert a WAIT at the beginning of every sequences
-	wait_type = pytypeof(QGL.ControlFlow[:Wait]())
+immutable Event
+	label::AbstractString
+end
+
+SequenceEntry = Union{Pulse, PulseBlock, ControlFlow, Event}
+
+function flatten_seqs(seq::Vector{Vector{Pulse}})
+	flat_seq = Vector{SequenceEntry}()
 	for seq = seqs
-		if !pyisinstance(seq[1], wait_type)
-			insert!(seq, 1, QGL.ControlFlow[:Wait]())
+		push!(flat_seq, WAIT())
+		for e in seq
+			push!(flat_seq, e)
 		end
 	end
+	return flat_seq
+end
 
-	# Add the digitizer trigger to measurements
-	QGL_PatternUtils.add_digitizer_trigger(seqs)
+function compile_to_hardware(seq::Vector{Vector{Pulse}}, base_filename)
+	compile_to_hardware(flatten_seqs(seq), base_filename)
+end
 
-	# Add gating/blanking pulses
-	QGL_PatternUtils.add_gate_pulses(seqs)
+function compile_to_hardware(seq::Vector{SequenceEntry}, base_filename; suffix="")
 
-	# Add slave trigger
-	QGL_PatternUtils.add_slave_trigger(seqs,
-		QGL.ChannelLibrary[:channelLib][:channelDict]["slaveTrig"])
+	# TODO: save input code to file as metadata
+	#save_code(seq)
 
-	# find channel set at top level to account for individual sequence channel variability
-	channels = QGL.Compiler[:find_unique_channels](seqs[1])
-	for seq = seqs[2:end]
-		channels[:union](QGL.Compiler[:find_unique_channels](seq))
-	end
+	# add slave trigger to every WAIT
+	add_slave_trigger!(seq, Marker("slaveTrig"))
 
-	wire_seqs = QGL.Compiler[:compile_sequences](seqs, channels)
+	# TODO: add gating/blanking pulses
+	#add_gate_pulses!(seq)
 
-	# gating constraints
-	logical_marker_chan_type = pytypeof(QGL.Channels[:LogicalMarkerChannel](label="dummy"))
-	for (chan, seq) in wire_seqs
-		if pyisinstance(chan, logical_marker_chan_type)
-			wire_seqs[chan] = QGL_PatternUtils.apply_gating_constraints(chan[:physChan], seq)
+	# TODO: gating constraints
+	# TODO: move to device drivers
+	#apply_gating_constraints!(seq)
+
+	seqs = compile(seq)
+
+	# TODO: dispatch to hardware instruction writer
+	#write_sequence_file(seq)
+
+	return seqs
+end
+
+function add_slave_trigger!(seq, slave_trig_chan)
+	wait_entry = WAIT()
+	slave_trig = Pulse("TRIG", slave_trig_chan, slave_trig_chan.shape_params["length"], 1.0, 0.0, 0.0, 0.0)
+	for (ct,e) in enumerate(seq)
+		if e == wait_entry
+			# try to add to next entry
+			seq[ct+1] = slave_trig ⊗ seq[ct+1]
 		end
 	end
+end
 
-	return wire_seqs, channels
+function compile(seq)
+	# find what channels we're dealing with here
+	chans = channels(seq)
+	seqs = Dict(chan => SequenceEntry[] for chan in chans)
+	pulses = Dict(chan => Set{Pulse}() for chan in chans)
+	paddings = Dict(chan => 0.0 for chan in chans)
 
+	# step through sequence and schedule
+	for e in seq
+		schedule!(seqs, pulses, paddings, e)
+	end
+
+	return seqs
+end
+
+function channels(seq)
+	chans = Set{Channel}()
+	for e in seq
+		if typeof(e) == Pulse
+			push!(chans, e.channel)
+		elseif typeof(e) == PulseBlock
+			for chan in keys(e.pulses)
+				push!(chans, chan)
+			end
+		end
+	end
+	return chans
+end
+
+function schedule!(seqs, pulses, paddings, cf::ControlFlow)
+	# broadcast control flow
+	for chan in keys(seqs)
+		apply_padding!(chan, seqs, paddings, pulses)
+		push!(seqs[chan], cf)
+	end
+end
+
+function schedule!(seqs, pulses, paddings, pb::PulseBlock)
+	pb_length = length(pb)
+	for chan in keys(seqs)
+		if chan in keys(pb.pulses)
+			for p in pb.pulses[chan]
+				push!(seqs[p.channel], p)
+				push!(pulses[p.channel], p)
+			end
+			paddings[chan] += pb_length - sum(p.length for p in pb.pulses[chan])
+		else
+			paddings[chan] += pb_length
+		end
+	end
+end
+
+function schedule!(seqs, pulses, paddings, p::Pulse)
+	for chan in keys(seqs)
+		if chan == p.channel
+			apply_padding!(chan, seqs, paddings, pulses)
+			push!(seqs[p.channel], p)
+			push!(pulses[p.channel], p)
+		else
+			paddings[chan] += length(p)
+		end
+	end
+end
+
+function apply_padding!(chan, seqs, paddings, pulses)
+	if paddings[chan] > 0.0
+		pad_pulse = Id(chan, paddings[chan])
+		push!(seqs[chan], pad_pulse)
+		push!(pulses[chan], pad_pulse)
+		paddings[chan] = 0.0
+	end
 end
