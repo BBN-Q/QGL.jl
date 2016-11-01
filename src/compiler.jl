@@ -3,8 +3,7 @@ using PyCall
 
 import Base.show
 
-include("pulses.jl")
-include("controlflow.jl")
+export compile_to_hardware
 
 immutable Event
 	label::AbstractString
@@ -73,7 +72,7 @@ function compile(seq)
 		schedule!(seqs, pulses, paddings, e)
 	end
 
-	return seqs
+	return seqs, pulses
 end
 
 function channels(seq)

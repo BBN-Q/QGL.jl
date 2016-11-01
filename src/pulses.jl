@@ -1,6 +1,6 @@
-include("channels.jl")
-
 import Base: convert, promote_rule, length
+
+export X90, Y90, X, Y, Id
 
 immutable Pulse
 	label::AbstractString
@@ -11,6 +11,7 @@ immutable Pulse
 	frequency::Real
 	frame_change::Real
 end
+
 Pulse(label, channel) = Pulse(label, channel, 0.0, 0.0, 0.0, 0.0, 0.0)
 Pulse(label, channel, length) = Pulse(label, channel, length, 0.0, 0.0, 0.0, 0.0)
 Pulse(label, channel, length, amp) = Pulse(label, channel, length, amp, 0.0, 0.0, 0.0)
@@ -55,3 +56,12 @@ end
 
 length(p::Pulse) = p.length
 length(pb::PulseBlock) = maximum(sum(p.length for p in ps) for ps in values(pb.pulses))
+
+
+# TODO: make native
+function waveform(p::Pulse, sampling_rate)
+	# copy shape parameters from channel and convert to symbols to splat in call below
+	shape_params = Dict(Symbol(k) => v for (k,v) in p.channel.shape_params)
+	shape_params[:samplingRate] = sampling_rate
+	return shape_params[:shapeFun](;shape_params...)
+end
