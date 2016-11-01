@@ -31,7 +31,10 @@ X(q::Qubit)::Pulse =
 Y(q::Qubit)::Pulse =
 	Pulse("Y", q, q.shape_params["length"], q.shape_params["piAmp"], 0.25)
 
-Id(c::Channel, length) = Pulse("Id", c, length)
+function Id(c::Channel, length)
+	# TODO: inject constant pulse shape
+	Pulse("Id", c, length, 0.0)
+end
 Id(c::Channel) = Id(c, c.shape_params["length"])
 
 type PulseBlock
