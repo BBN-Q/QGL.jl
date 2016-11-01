@@ -31,7 +31,7 @@ Y(q::Qubit)::Pulse =
 	Pulse("Y", q, q.shape_params["length"], q.shape_params["piAmp"], 0.25)
 
 Id(c::Channel, length) = Pulse("Id", c, length)
-Id(c::Channel) = Id(q, c.shape_params["length"])
+Id(c::Channel) = Id(c, c.shape_params["length"])
 
 type PulseBlock
 	pulses::Dict{Channel, Vector{Pulse}}

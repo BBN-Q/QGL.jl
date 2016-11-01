@@ -12,7 +12,7 @@ end
 
 SequenceEntry = Union{Pulse, PulseBlock, ControlFlow, Event}
 
-function flatten_seqs(seq::Vector{Vector{Pulse}})
+function flatten_seqs(seqs::Vector{Vector{Pulse}})
 	flat_seq = Vector{SequenceEntry}()
 	for seq = seqs
 		push!(flat_seq, WAIT())
@@ -23,8 +23,8 @@ function flatten_seqs(seq::Vector{Vector{Pulse}})
 	return flat_seq
 end
 
-function compile_to_hardware(seq::Vector{Vector{Pulse}}, base_filename)
-	compile_to_hardware(flatten_seqs(seq), base_filename)
+function compile_to_hardware(seqs::Vector{Vector{Pulse}}, base_filename)
+	compile_to_hardware(flatten_seqs(seqs), base_filename)
 end
 
 function compile_to_hardware(seq::Vector{SequenceEntry}, base_filename; suffix="")
