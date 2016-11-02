@@ -14,7 +14,7 @@ SequenceEntry = Union{Pulse, PulseBlock, ControlFlow, Event}
 function flatten_seqs(seqs::Vector{Vector{Pulse}})
 	flat_seq = Vector{SequenceEntry}()
 	for seq = seqs
-		push!(flat_seq, WAIT())
+		push!(flat_seq, wait())
 		for e in seq
 			push!(flat_seq, e)
 		end
@@ -50,7 +50,7 @@ function compile_to_hardware(seq::Vector{SequenceEntry}, base_filename; suffix="
 end
 
 function add_slave_trigger!(seq, slave_trig_chan)
-	wait_entry = WAIT()
+	wait_entry = wait()
 	slave_trig = Pulse("TRIG", slave_trig_chan, slave_trig_chan.shape_params["length"], 1.0, 0.0, 0.0, 0.0)
 	for (ct,e) in enumerate(seq)
 		if e == wait_entry

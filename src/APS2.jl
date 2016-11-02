@@ -1,8 +1,9 @@
 # translator for the APS2
 module APS2
 
+using HDF5
+
 import QGL
-import QGL: Pulse, PulseBlock, waveform, channels
 
 const DAC_CLOCK = 1.2e9
 const FPGA_CLOCK = 300e6
@@ -24,7 +25,7 @@ const DEC_REPEAT = 0x04
 const CMP = 0x05
 const GOTO = 0x06
 const CALL = 0x07
-const RET = 0x08
+const RETURN = 0x08
 const SYNC = 0x09
 const MODULATOR = 0x0a
 const LOAD_CMP = 0x0b
@@ -88,7 +89,7 @@ immutable ControlFlow
 	instruction::UInt64
 end
 
-function write_sequence_file(seqs, pulses)
+function write_sequence_file(filename, seqs, pulses)
 
 	# TODO: inject modulation commands
 	# inject_modulation_commands
@@ -97,24 +98,27 @@ function write_sequence_file(seqs, pulses)
 	wf_lib, wfs = create_wfs(pulses)
 
 	# create instructions and waveforms
-	instrs = create_instructions(seqs, wf_lib)
+	instrs = create_instrs(seqs, wf_lib)
 
-	# TODO: write to file
+	write_to_file(filename, instrs, wfs)
 end
 
 const USE_PHASE_OFFSET_INSTRUCTION = false
 
 function create_wfs(pulses)
 	# TODO: better handle Id so we don't generate useless long wfs and have repeated 0 offsets
-	instr_lib = Dict{Pulse, Union{Waveform,Marker}}()
-	wfs = Vector{Vector{Complex128}}()
+	instr_lib = Dict{QGL.Pulse, Union{Waveform,Marker}}()
+	wfs = Vector{Vector{Int16}}()
 	idx = 0
 	for p in pulses
 		if typeof(p.channel) == QGL.Qubit
-			wf = p.amp * waveform(p, DAC_CLOCK)
+			wf = p.amp * QGL.waveform(p, DAC_CLOCK)
 			if !USE_PHASE_OFFSET_INSTRUCTION
 				wf *= exp(1im * p.phase)
 			end
+			#reduce to Int16 with maximum of 8191
+			wf = round(Int16, MAX_WAVEFORM_VALUE*real(wf)) + 1im*round(Int16, MAX_WAVEFORM_VALUE*imag(wf))
+
 			isTA = all(wf .== wf[1])
 			if isTA
 				instr_lib[p] = Waveform(idx, ADDRESS_UNIT, isTA, true)
@@ -131,6 +135,7 @@ function create_wfs(pulses)
 		end
 
 	end
+
 	return instr_lib, wfs
 end
 
@@ -138,13 +143,14 @@ function create_instrs(seqs, wf_lib)
 	instrs = APS2Instruction[]
 
 	for entry in seqs
-		if typeof(entry) == PulseBlock
-			time_stamps = Dict(chan => 0.0 for chan in channels(entry))
-			all_done = Dict(chan => false for chan in channels(entry))
-			idx = Dict(chan => 1 for chan in channels(entry))
+		# play out pulses
+		if typeof(entry) == QGL.PulseBlock
+			time_stamps = Dict(chan => 0.0 for chan in QGL.channels(entry))
+			all_done = Dict(chan => false for chan in QGL.channels(entry))
+			idx = Dict(chan => 1 for chan in QGL.channels(entry))
 			while !all(values(all_done))
 				next_time = 0
-				for chan in channels(entry)
+				for chan in QGL.channels(entry)
 					while !all_done[chan] && (time_stamps[chan] <= next_time)
 						wf = wf_lib[entry.pulses[chan][idx[chan]]]
 						push!(instrs, wf.instruction)
@@ -160,13 +166,46 @@ function create_instrs(seqs, wf_lib)
 			end
 
 		else
-			push!(instrs, UInt64(0xabcd))
+			# convert control flow to APS2Instruction
+			push!(instrs, convert(APS2Instruction, entry))
 		end
 
 	end
 
 	return instrs
 
+end
+
+function convert(::Type{APS2Instruction}, cf::QGL.ControlFlow)
+	if cf.op == QGL.WAIT
+		return APS2Instruction(WAIT << 4 | 0x1) << 56
+	elseif cf.op == QGL.GOTO
+		return APS2Instruction(GOTO << 4 | 0x1) << 56 | UInt64(cf.target)
+	else
+		error("Untranslated control flow instruction")
+	end
+end
+
+function write_to_file(filename, instrs, wfs)
+	#flatten waveforms to vector
+	wf_vec = Vector{Complex{Int16}}(sum(length(wf) for wf in wfs))
+	idx = 1
+	for wf in wfs
+		wf_vec[idx:idx+length(wf)-1] = wf
+		idx += length(wf)
+	end
+
+	h5open(filename, "w") do f
+		attrs(f)["Version"] = 4.0
+		attrs(f)["target hardware"] = "APS2"
+		attrs(f)["minimum firmware version"] = 4.0
+		attrs(f)["channelDataFor"] = UInt16[1; 2]
+		chan_1 = g_create(f, "chan_1")
+		write(chan_1, "waveforms", real(wf_vec))
+		write(chan_1, "instructions", instrs)
+		chan_2 = g_create(f, "chan_2")
+		write(chan_2, "waveforms", imag(wf_vec))
+	end
 end
 
 end
