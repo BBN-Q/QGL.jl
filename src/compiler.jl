@@ -1,7 +1,7 @@
 using PyCall
 @pyimport QGL
 
-import Base.show
+import Base: show, push!
 
 export compile_to_hardware
 
@@ -63,13 +63,26 @@ end
 function compile(seq)
 	# find what channels we're dealing with here
 	chans = channels(seq)
-	seqs = Dict(chan => SequenceEntry[] for chan in chans)
+	seqs = Vector{SequenceEntry}()
 	pulses = Dict(chan => Set{Pulse}() for chan in chans)
 	paddings = Dict(chan => 0.0 for chan in chans)
 
 	# step through sequence and schedule
-	for e in seq
-		schedule!(seqs, pulses, paddings, e)
+	for entry in seq
+		if typeof(entry) == ControlFlow
+			# control flow resets clock
+			if length(seqs) > 0 && typeof(seqs[end]) != ControlFlow
+				for chan in chans
+					apply_padding!(chan, seqs[end], paddings, pulses)
+				end
+			end
+			push!(seqs, entry)
+		else
+			if length(seqs) > 0 && typeof(seqs[end]) == ControlFlow
+				push!(seqs, PulseBlock(chans))
+			end
+			push!(seqs[end], entry, pulses, paddings)
+		end
 	end
 
 	return seqs, pulses
@@ -89,45 +102,37 @@ function channels(seq)
 	return chans
 end
 
-function schedule!(seqs, pulses, paddings, cf::ControlFlow)
-	# broadcast control flow
-	for chan in keys(seqs)
-		apply_padding!(chan, seqs, paddings, pulses)
-		push!(seqs[chan], cf)
-	end
-end
-
-function schedule!(seqs, pulses, paddings, pb::PulseBlock)
-	pb_length = length(pb)
-	for chan in keys(seqs)
-		if chan in keys(pb.pulses)
-			for p in pb.pulses[chan]
-				push!(seqs[p.channel], p)
-				push!(pulses[p.channel], p)
+function push!(pb_cur::PulseBlock, pb_new::PulseBlock, pulses, paddings)
+	pb_new_length = length(pb_new)
+	for chan in channels(pb_cur)
+		if chan in channels(pb_new)
+			for p in pb_new.pulses[chan]
+				push!(pb_cur.pulses[chan], p)
+				push!(pulses[chan], p)
 			end
-			paddings[chan] += pb_length - sum(p.length for p in pb.pulses[chan])
+			paddings[chan] += pb_new_length - sum(p.length for p in pb_new.pulses[chan])
 		else
-			paddings[chan] += pb_length
+			paddings[chan] += pb_new_length
 		end
 	end
 end
 
-function schedule!(seqs, pulses, paddings, p::Pulse)
-	for chan in keys(seqs)
+function push!(pb_cur::PulseBlock, p::Pulse, pulses, paddings)
+	for chan in channels(pb_cur)
 		if chan == p.channel
-			apply_padding!(chan, seqs, paddings, pulses)
-			push!(seqs[p.channel], p)
-			push!(pulses[p.channel], p)
+			apply_padding!(chan, pb_cur, paddings, pulses)
+			push!(pb_cur.pulses[chan], p)
+			push!(pulses[chan], p)
 		else
 			paddings[chan] += length(p)
 		end
 	end
 end
 
-function apply_padding!(chan, seqs, paddings, pulses)
+function apply_padding!(chan, pb, paddings, pulses)
 	if paddings[chan] > 0.0
 		pad_pulse = Id(chan, paddings[chan])
-		push!(seqs[chan], pad_pulse)
+		push!(pb.pulses[chan], pad_pulse)
 		push!(pulses[chan], pad_pulse)
 		paddings[chan] = 0.0
 	end

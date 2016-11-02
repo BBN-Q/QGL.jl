@@ -1,6 +1,6 @@
 import Base: convert, promote_rule, length
 
-export X90, Y90, X, Y, Id
+export X90, Y90, X, Y, Id, ⊗
 
 immutable Pulse
 	label::AbstractString
@@ -43,10 +43,13 @@ end
 
 convert(::Type{PulseBlock}, p::Pulse) = PulseBlock(Dict(p.channel => [p]))
 PulseBlock(p::Pulse) = convert(PulseBlock, p)
+PulseBlock(chans::Set{Channel}) = PulseBlock(Dict{Channel, Vector{Pulse}}(chan => Pulse[] for chan in chans))
 ⊗(x::Pulse, y::Pulse) = ⊗(PulseBlock(x), PulseBlock(y))
 ⊗(x::Pulse, y::PulseBlock) = ⊗(PulseBlock(x), y)
 ⊗(x::PulseBlock, y::PulseBlock) = PulseBlock(merge(x.pulses, y.pulses))
 promote_rule(::Type{Pulse}, ::Type{PulseBlock}) = PulseBlock
+
+channels(pb::PulseBlock) = keys(pb.pulses)
 
 function show(io::IO, pb::PulseBlock)
 	strs = []
