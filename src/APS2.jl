@@ -108,7 +108,7 @@ const USE_PHASE_OFFSET_INSTRUCTION = false
 function create_wfs(pulses)
 	# TODO: better handle Id so we don't generate useless long wfs and have repeated 0 offsets
 	instr_lib = Dict{QGL.Pulse, Union{Waveform,Marker}}()
-	wfs = Vector{Vector{Int16}}()
+	wfs = Vector{Vector{Complex{Int16}}}()
 	idx = 0
 	for p in pulses
 		if typeof(p.channel) == QGL.Qubit
