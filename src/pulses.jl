@@ -64,10 +64,11 @@ length(p::Pulse) = p.length
 length(pb::PulseBlock) = maximum(sum(p.length for p in ps) for ps in values(pb.pulses))
 
 
-# TODO: make native
+# TODO: make native and handle TA pairs
 function waveform(p::Pulse, sampling_rate)
 	# copy shape parameters from channel and convert to symbols to splat in call below
 	shape_params = Dict(Symbol(k) => v for (k,v) in p.channel.shape_params)
 	shape_params[:samplingRate] = sampling_rate
+	shape_params[:length] = p.length
 	return shape_params[:shapeFun](;shape_params...)
 end
