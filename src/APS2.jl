@@ -120,12 +120,11 @@ function create_wfs(pulses)
 			wf = round(Int16, MAX_WAVEFORM_VALUE*real(wf)) + 1im*round(Int16, MAX_WAVEFORM_VALUE*imag(wf))
 
 			isTA = all(wf .== wf[1])
+			instr_lib[p] = Waveform(idx, length(wf), isTA, true)
 			if isTA
-				instr_lib[p] = Waveform(idx, ADDRESS_UNIT, isTA, true)
 				idx += ADDRESS_UNIT
 				push!(wfs, wf[1:ADDRESS_UNIT])
 			else
-				instr_lib[p] = Waveform(idx, length(wf), isTA, true)
 				idx += length(wf)
 				push!(wfs, wf)
 			end
