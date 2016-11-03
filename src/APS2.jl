@@ -116,7 +116,7 @@ function create_wfs(pulses)
 			if !USE_PHASE_OFFSET_INSTRUCTION
 				wf *= exp(1im * p.phase)
 			end
-			#reduce to Int16 with maximum of 8191
+			# reduce to Int16 with maximum for 14 bit DAC
 			wf = round(Int16, MAX_WAVEFORM_VALUE*real(wf)) + 1im*round(Int16, MAX_WAVEFORM_VALUE*imag(wf))
 
 			isTA = all(wf .== wf[1])
@@ -130,7 +130,7 @@ function create_wfs(pulses)
 				push!(wfs, wf)
 			end
 		elseif typeof(p.channel) == QGL.Marker
-			num_points = length(p) ÷ DAC_CLOCK
+			num_points = round(UInt64, length(p) * DAC_CLOCK)
 			instr_lib[p] = Marker(1, num_points, p.amp > 0.5, true)
 		end
 
