@@ -9,9 +9,9 @@ abstract Channel
 show(io::IO, c::Channel) = print(io, c.label)
 
 immutable Qubit <: Channel
-	label::AbstractString
-	awg_channel::AbstractString
-	gate_channel::AbstractString
+	label::String
+	awg_channel::String
+	gate_channel::String
 	shape_params::Dict{Any,Any}
 end
 
@@ -25,8 +25,8 @@ function Qubit(label)
 end
 
 immutable Marker <: Channel
-	label::AbstractString
-	awg_channel::AbstractString
+	label::String
+	awg_channel::String
 	shape_params::Dict{Any, Any}
 end
 
@@ -39,7 +39,7 @@ function Marker(label)
 end
 
 type QuadratureAWGChannel
-	awg::AbstractString
+	awg::String
 	delay::Real
 	mixer_correction::Matrix{Real}
 end

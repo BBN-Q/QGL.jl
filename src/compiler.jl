@@ -41,11 +41,27 @@ function compile_to_hardware(seq::Vector{SequenceEntry}, base_filename; suffix="
 	# TODO: move to device drivers
 	#apply_gating_constraints!(seq)
 
-	seqs = compile(seq)
+	seqs, pulses, chans = compile(seq)
 
-	# TODO: dispatch to hardware instruction writer
-	#write_sequence_file(seq)
+	# map the labeled channels to physical channels and bundle per APS/AWG
+	AWGs = Dict{String, Dict}()
+	for chan in chans
+		# look up AWG and channel from convention of AWG-chan
+		# TODO: make native and explicit
+		(awg, chan_str) = split(chan.awg_channel, '-')
+		chan_str_map = Dict("12"=>:ch12, "12m1"=>:m1, "12m2"=>:m2, "12m3"=>:m3, "12m4"=>:m4)
+		get!(AWGs, awg, Dict{Symbol, Channel}())[chan_str_map[chan_str]] = chan
+	end
 
+	translator_map = Dict("APS2Pattern" => APS2)
+	for (awg, ch_map) in AWGs
+		# use first channel to lookup translator from pyQGL
+		# TODO: make native and explicit
+		first_chan = collect(values(ch_map))[1]
+		phys_chan = QGL.pyQGL.ChannelLibrary[:channelLib][:channelDict][first_chan.awg_channel]
+		translator = translator_map[ phys_chan[:translator] ]
+		translator.write_sequence_file(base_filename*"-$awg.h5", seqs, pulses, ch_map)
+	end
 	return seqs
 end
 
@@ -85,7 +101,7 @@ function compile(seq)
 		end
 	end
 
-	return seqs, pulses
+	return seqs, pulses, chans
 end
 
 function channels(seq)

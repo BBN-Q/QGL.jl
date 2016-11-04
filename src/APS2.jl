@@ -89,53 +89,61 @@ immutable ControlFlow
 	instruction::UInt64
 end
 
-function write_sequence_file(filename, seqs, pulses)
+"""
+Serialize a pulse sequence to a HDF5 file
+"""
+function write_sequence_file(filename, seqs, pulses, channel_map)
 
 	# TODO: inject modulation commands
 	# inject_modulation_commands
 
-	# translate pulses to waveforms
-	wf_lib, wfs = create_wfs(pulses)
-
+	# translate pulses to waveform and/or markers
+	instr_lib = Dict{QGL.Pulse, Union{Waveform,Marker}}()
+	wfs = create_wf_instrs!(instr_lib, pulses[channel_map[:ch12]])
+	for (ct, marker_chan) = enumerate([:m1, :m2, :m3, :m4])
+		if marker_chan in keys(channel_map)
+			create_marker_instrs!(instr_lib, pulses[channel_map[marker_chan]], ct)
+		end
+	end
 	# create instructions and waveforms
-	instrs = create_instrs(seqs, wf_lib)
+	instrs = create_instrs(seqs, instr_lib)
 
 	write_to_file(filename, instrs, wfs)
 end
 
 const USE_PHASE_OFFSET_INSTRUCTION = false
 
-function create_wfs(pulses)
+function create_wf_instrs!(instr_lib, pulses)
 	# TODO: better handle Id so we don't generate useless long wfs and have repeated 0 offsets
-	instr_lib = Dict{QGL.Pulse, Union{Waveform,Marker}}()
 	wfs = Vector{Vector{Complex{Int16}}}()
 	idx = 0
 	for p in pulses
-		if typeof(p.channel) == QGL.Qubit
-			wf = p.amp * QGL.waveform(p, DAC_CLOCK)
-			if !USE_PHASE_OFFSET_INSTRUCTION
-				wf *= exp(1im * p.phase)
-			end
-			# reduce to Int16 with maximum for 14 bit DAC
-			wf = round(Int16, MAX_WAVEFORM_VALUE*real(wf)) + 1im*round(Int16, MAX_WAVEFORM_VALUE*imag(wf))
-
-			isTA = all(wf .== wf[1])
-			instr_lib[p] = Waveform(idx, length(wf), isTA, true)
-			if isTA
-				idx += ADDRESS_UNIT
-				push!(wfs, wf[1:ADDRESS_UNIT])
-			else
-				idx += length(wf)
-				push!(wfs, wf)
-			end
-		elseif typeof(p.channel) == QGL.Marker
-			num_points = round(UInt64, length(p) * DAC_CLOCK)
-			instr_lib[p] = Marker(1, num_points, p.amp > 0.5, true)
+		wf = p.amp * QGL.waveform(p, DAC_CLOCK)
+		if !USE_PHASE_OFFSET_INSTRUCTION
+			wf *= exp(1im * p.phase)
 		end
+		# reduce to Int16 with maximum for 14 bit DAC
+		wf = round(Int16, MAX_WAVEFORM_VALUE*real(wf)) + 1im*round(Int16, MAX_WAVEFORM_VALUE*imag(wf))
 
+		isTA = all(wf .== wf[1])
+		instr_lib[p] = Waveform(idx, length(wf), isTA, true)
+		if isTA
+			idx += ADDRESS_UNIT
+			push!(wfs, wf[1:ADDRESS_UNIT])
+		else
+			idx += length(wf)
+			push!(wfs, wf)
+		end
 	end
 
-	return instr_lib, wfs
+	return wfs
+end
+
+function create_marker_instrs!(instr_lib, pulses, marker_chan)
+	for p in pulses
+		num_points = round(UInt64, length(p) * DAC_CLOCK)
+		instr_lib[p] = Marker(marker_chan, num_points, p.amp > 0.5, true)
+	end
 end
 
 function create_instrs(seqs, wf_lib)
