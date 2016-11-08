@@ -119,7 +119,7 @@ function write_sequence_file(filename, seqs, pulses, channel_map)
 	end
 
 	# create instructions and waveforms
-	instrs = create_instrs(seqs, instr_lib, channel_map[:ch12].frequency)
+	instrs = create_instrs(seqs, instr_lib, collect(values(channel_map)),channel_map[:ch12].frequency)
 
 	write_to_file(filename, instrs, wfs)
 end
@@ -159,7 +159,7 @@ function create_marker_instrs!(instr_lib, pulses, marker_chan)
 	end
 end
 
-function create_instrs(seqs, wf_lib, chan_freq)
+function create_instrs(seqs, wf_lib, chans, chan_freq)
 	instrs = APS2Instruction[]
 
 	# sort out whether we have any modulation commands
@@ -169,26 +169,37 @@ function create_instrs(seqs, wf_lib, chan_freq)
 	reset_phase_instr = modulation_instr(RESET_PHASE, 0x7)
 	chan_freq_instr = modulation_instr(SET_FREQ, 0x1, round(Int32, chan_freq / FPGA_CLOCK * 2^28 ))
 
+	num_chans = length(chans)
+	time_stamp = zeros(Int, num_chans)
+	idx = ones(Int, num_chans)
+	all_done = zeros(Bool, num_chans)
+	num_entries = zeros(Int, num_chans)
+
 	for entry in seqs
 		if typeof(entry) == QGL.PulseBlock
-			# play out pulses from the PulseBlock
-			time_stamps = Dict(chan => 0 for chan in QGL.channels(entry))
-			all_done = Dict(chan => false for chan in QGL.channels(entry))
-			idx = Dict(chan => 1 for chan in QGL.channels(entry))
+			# zero-out status vectors
+			fill!(time_stamp, 0)
+			fill!(idx, 1)
+			fill!(all_done, false)
+			for (ct, chan) in enumerate(chans)
+				num_entries[ct] = length(entry.pulses[chan])
+			end
+
+			# serialize pulses from the PulseBlock
 			# round-robin through the channels until all are exhausted
-			while !all(values(all_done))
-				next_instr_time = typemax(UInt32)
-				for chan in QGL.channels(entry)
-					if !all_done[chan] && (time_stamps[chan] <= next_instr_time)
-						next_entry = entry.pulses[chan][idx[chan]]
+			while !all(all_done)
+				next_instr_time = minimum(time_stamp)
+
+				for (ct, chan) in enumerate(chans)
+					if (!all_done[ct]) && (time_stamp[ct] <= next_instr_time)
+						next_entry = entry.pulses[chan][idx[ct]]
 						if typeof(next_entry) == QGL.Pulse
 							wf = wf_lib[next_entry]
 							if typeof(chan) == QGL.Qubit
 								push!(instrs, modulation_instr(MODULATE, 0x1, wf.count))
 							end
 							push!(instrs, wf.instruction)
-							time_stamps[chan] += wf.count+1
-							next_instr_time = min(next_instr_time, time_stamps[chan])
+							time_stamp[ct] += wf.count+1
 						elseif typeof(next_entry) == QGL.ZPulse
 							# round phase to 28 bit integer
 							push!(instrs, modulation_instr(UPDATE_FRAME, 0x1, round(Int32, mod(next_entry.angle, 1) * 2^28 )) )
@@ -196,10 +207,8 @@ function create_instrs(seqs, wf_lib, chan_freq)
 							error("Untranslated pulse block entry")
 						end
 
-						idx[chan] += 1
-						if idx[chan] > length(entry.pulses[chan])
-							all_done[chan] = true
-						end
+						idx[ct] += 1
+						all_done[ct] = idx[ct] > num_entries[ct]
 					end
 
 				end
