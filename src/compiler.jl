@@ -101,6 +101,12 @@ function compile(seq)
 		end
 	end
 
+	# assume we want to loop to the beginning
+	for chan in chans
+		apply_padding!(chan, seqs[end], paddings, pulses)
+	end
+	push!(seqs, goto(0))
+
 	return seqs, pulses, chans
 end
 
