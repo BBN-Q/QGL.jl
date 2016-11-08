@@ -170,15 +170,16 @@ function create_instrs(seqs, wf_lib, chan_freq)
 	chan_freq_instr = modulation_instr(SET_FREQ, 0x1, round(Int32, chan_freq / FPGA_CLOCK * 2^28 ))
 
 	for entry in seqs
-		# play out pulses
 		if typeof(entry) == QGL.PulseBlock
-			time_stamps = Dict(chan => 0.0 for chan in QGL.channels(entry))
+			# play out pulses from the PulseBlock
+			time_stamps = Dict(chan => 0 for chan in QGL.channels(entry))
 			all_done = Dict(chan => false for chan in QGL.channels(entry))
 			idx = Dict(chan => 1 for chan in QGL.channels(entry))
+			# round-robin through the channels until all are exhausted
 			while !all(values(all_done))
-				next_time = 0
+				next_instr_time = typemax(UInt32)
 				for chan in QGL.channels(entry)
-					while !all_done[chan] && (time_stamps[chan] <= next_time)
+					if !all_done[chan] && (time_stamps[chan] <= next_instr_time)
 						next_entry = entry.pulses[chan][idx[chan]]
 						if typeof(next_entry) == QGL.Pulse
 							wf = wf_lib[next_entry]
@@ -187,7 +188,7 @@ function create_instrs(seqs, wf_lib, chan_freq)
 							end
 							push!(instrs, wf.instruction)
 							time_stamps[chan] += wf.count+1
-							next_time += wf.count+1
+							next_instr_time = min(next_instr_time, time_stamps[chan])
 						elseif typeof(next_entry) == QGL.ZPulse
 							# round phase to 28 bit integer
 							push!(instrs, modulation_instr(UPDATE_FRAME, 0x1, round(Int32, mod(next_entry.angle, 1) * 2^28 )) )
