@@ -13,6 +13,7 @@ immutable Qubit <: Channel
 	awg_channel::String
 	gate_channel::String
 	shape_params::Dict{Any,Any}
+	frequency::Real
 end
 
 function Qubit(label)
@@ -21,7 +22,7 @@ function Qubit(label)
 	q = pyQGL.QubitFactory(label)
 	phys_chan = typeof(q[:physChan]) == Void ? "" : q[:physChan][:label]
 	gate_chan = typeof(q[:gateChan]) == Void ? "" : q[:gateChan][:label]
-	Qubit(label, phys_chan, gate_chan, q[:pulseParams])
+	Qubit(label, phys_chan, gate_chan, q[:pulseParams], q[:frequency])
 end
 
 immutable Marker <: Channel

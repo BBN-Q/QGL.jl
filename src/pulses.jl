@@ -1,35 +1,46 @@
 import Base: convert, promote_rule, length
 
-export X90, Y90, X, Y, Id, ⊗
+export X90, X, X90m, Y90, Y, Y90m, Z90, Z, Z90m, Id, ⊗
 
 immutable Pulse
-	label::AbstractString
+	label::String
 	channel
 	length::Real
 	amp::Real
 	phase::Real
 	frequency::Real
-	frame_change::Real
 end
 
-Pulse(label, channel) = Pulse(label, channel, 0.0, 0.0, 0.0, 0.0, 0.0)
-Pulse(label, channel, length) = Pulse(label, channel, length, 0.0, 0.0, 0.0, 0.0)
-Pulse(label, channel, length, amp) = Pulse(label, channel, length, amp, 0.0, 0.0, 0.0)
-Pulse(label, channel, length, amp, phase) = Pulse(label, channel, length, amp, phase, 0.0, 0.0)
+immutable ZPulse
+	label::String
+	channel
+	angle::Real
+end
+
+Pulse(label, channel) = Pulse(label, channel, 0.0, 0.0, 0.0, 0.0)
+Pulse(label, channel, length) = Pulse(label, channel, length, 0.0, 0.0, 0.0)
+Pulse(label, channel, length, amp) = Pulse(label, channel, length, amp, 0.0, 0.0)
+Pulse(label, channel, length, amp, phase) = Pulse(label, channel, length, amp, phase, 0.0)
 
 show(io::IO, p::Pulse) = print(io, "$(p.label)($(p.channel.label))")
 
-X90(q::Qubit)::Pulse =
-	Pulse("X90", q, q.shape_params["length"], q.shape_params["pi2Amp"])
+for (func, label, amp, phase) in [
+	(:X90,  "X90",  "pi2Amp", 0),
+	(:X,    "X",    "piAmp",  0),
+	(:X90m, "X90m", "pi2Amp", 0.5),
+	(:Y90,  "Y90",  "pi2Amp", 0.25),
+	(:Y,    "Y",    "piAmp",  0.25),
+	(:Y90m, "Y90m", "pi2Amp", 0.75)
+	]
+	@eval $func(q) = Pulse($label, q, q.shape_params["length"], q.shape_params[$amp], $phase, 0)
+end
 
-Y90(q::Qubit)::Pulse =
-	Pulse("Y90", q, q.shape_params["length"], q.shape_params["pi2Amp"])
+Z(q::Qubit, angle=0.5) = ZPulse("Z", q, angle)
+Z90(q::Qubit) = ZPulse("Z90", q, 0.25)
+Z90m(q::Qubit) = ZPulse("Z90m", q, 0.75)
+length(z::ZPulse) = 0
 
-X(q::Qubit)::Pulse =
-	Pulse("X", q, q.shape_params["length"], q.shape_params["piAmp"], 0.25)
-
-Y(q::Qubit)::Pulse =
-	Pulse("Y", q, q.shape_params["length"], q.shape_params["piAmp"], 0.25)
+show(io::IO, z::ZPulse) = print(io, "$(z.label)($(z.channel.label), $(z.angle))")
 
 function Id(c::Channel, length)
 	# TODO: inject constant pulse shape
@@ -37,8 +48,29 @@ function Id(c::Channel, length)
 end
 Id(c::Channel) = Id(c, c.shape_params["length"])
 
+
+function AC(q::Qubit, num)
+
+	pulses = [
+		q -> Id(q),
+		q -> X90(q),
+		q -> X(q),
+		q -> X90m(q),
+		q -> Y90(q),
+		q -> Y(q),
+		q -> Y90m(q),
+		q -> Z90(q),
+		q -> Z(q),
+		q -> Z90m(q)
+	]
+
+	return pulses[num](q)
+
+end
+
+
 type PulseBlock
-	pulses::Dict{Channel, Vector{Pulse}}
+	pulses::Dict{Channel, Vector{Union{Pulse, ZPulse}}}
 end
 
 convert(::Type{PulseBlock}, p::Pulse) = PulseBlock(Dict(p.channel => [p]))

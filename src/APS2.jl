@@ -42,12 +42,12 @@ immutable Waveform
 end
 
 # WFM/MARKER op codes
-const PLAY_WFM = 0x0
-const WAIT_TRIG = 0x1
-const WAIT_SYNC = 0x2
-const WFM_PREFETCH = 0x3
+const PLAY_WFM      = 0x0
+const WAIT_TRIG     = 0x1
+const WAIT_SYNC     = 0x2
+const WFM_PREFETCH  = 0x3
 const WFM_OP_OFFSET = 46
-const TA_PAIR_BIT = 45
+const TA_PAIR_BIT   = 45
 const WFM_CT_OFFSET = 24
 
 function Waveform(address, count, isTA, write_flag)
@@ -89,6 +89,18 @@ immutable ControlFlow
 	instruction::UInt64
 end
 
+
+# modulation instructions
+@enum MODULATION_OP_CODE MODULATE=0x00 RESET_PHASE=0x02 SET_FREQ=0x06 SET_PHASE=0x0a UPDATE_FRAME=0x0e
+const MODULATOR_OP_OFFSET = 44
+const NCO_SELECT_OP_OFFSET = 40
+function modulation_instr(op::MODULATION_OP_CODE, nco_select, payload=0)
+	return UInt64(MODULATOR) << 60 | UInt64(0x1) << 56 |
+		UInt64(op) << MODULATOR_OP_OFFSET | UInt64(nco_select) << 40 |
+		reinterpret(UInt32, Int32(payload))
+end
+
+
 """
 Serialize a pulse sequence to a HDF5 file
 """
@@ -105,8 +117,9 @@ function write_sequence_file(filename, seqs, pulses, channel_map)
 			create_marker_instrs!(instr_lib, pulses[channel_map[marker_chan]], ct)
 		end
 	end
+
 	# create instructions and waveforms
-	instrs = create_instrs(seqs, instr_lib)
+	instrs = create_instrs(seqs, instr_lib, channel_map[:ch12].frequency)
 
 	write_to_file(filename, instrs, wfs)
 end
@@ -146,8 +159,15 @@ function create_marker_instrs!(instr_lib, pulses, marker_chan)
 	end
 end
 
-function create_instrs(seqs, wf_lib)
+function create_instrs(seqs, wf_lib, chan_freq)
 	instrs = APS2Instruction[]
+
+	# sort out whether we have any modulation commands
+	freqs = any(e.frequency != 0 for e in seqs if typeof(e) == QGL.Pulse)
+	frame_changes = any(typeof(e) == QGL.ZPulse for e in seqs)
+
+	reset_phase_instr = modulation_instr(RESET_PHASE, 0x7)
+	chan_freq_instr = modulation_instr(SET_FREQ, 0x1, round(Int32, chan_freq / FPGA_CLOCK * 2^28 ))
 
 	for entry in seqs
 		# play out pulses
@@ -159,10 +179,22 @@ function create_instrs(seqs, wf_lib)
 				next_time = 0
 				for chan in QGL.channels(entry)
 					while !all_done[chan] && (time_stamps[chan] <= next_time)
-						wf = wf_lib[entry.pulses[chan][idx[chan]]]
-						push!(instrs, wf.instruction)
-						time_stamps[chan] += wf.count+1
-						next_time += wf.count+1
+						next_entry = entry.pulses[chan][idx[chan]]
+						if typeof(next_entry) == QGL.Pulse
+							wf = wf_lib[next_entry]
+							if typeof(chan) == QGL.Qubit
+								push!(instrs, modulation_instr(MODULATE, 0x1, wf.count))
+							end
+							push!(instrs, wf.instruction)
+							time_stamps[chan] += wf.count+1
+							next_time += wf.count+1
+						elseif typeof(next_entry) == QGL.ZPulse
+							# round phase to 28 bit integer
+							push!(instrs, modulation_instr(UPDATE_FRAME, 0x1, round(Int32, mod(next_entry.angle, 1) * 2^28 )) )
+						else
+							error("Untranslated pulse block entry")
+						end
+
 						idx[chan] += 1
 						if idx[chan] > length(entry.pulses[chan])
 							all_done[chan] = true
@@ -174,6 +206,11 @@ function create_instrs(seqs, wf_lib)
 
 		else
 			# convert control flow to APS2Instruction
+			if entry.op == QGL.WAIT
+				# heuristic to reset modulation engine phase and frame before wait for trigger
+				push!(instrs, reset_phase_instr)
+				push!(instrs, chan_freq_instr)
+			end
 			push!(instrs, convert(APS2Instruction, entry))
 		end
 

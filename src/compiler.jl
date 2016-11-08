@@ -9,9 +9,9 @@ immutable Event
 	label::AbstractString
 end
 
-SequenceEntry = Union{Pulse, PulseBlock, ControlFlow, Event}
+SequenceEntry = Union{Pulse, PulseBlock, ZPulse, ControlFlow, Event}
 
-function flatten_seqs(seqs::Vector{Vector{Pulse}})
+function flatten_seqs{T}(seqs::Vector{Vector{T}})
 	flat_seq = Vector{SequenceEntry}()
 	for seq = seqs
 		push!(flat_seq, wait())
@@ -22,7 +22,7 @@ function flatten_seqs(seqs::Vector{Vector{Pulse}})
 	return flat_seq
 end
 
-function compile_to_hardware(seqs::Vector{Vector{Pulse}}, base_filename)
+function compile_to_hardware{T}(seqs::Vector{Vector{T}}, base_filename)
 	compile_to_hardware(flatten_seqs(seqs), base_filename)
 end
 
@@ -67,7 +67,7 @@ end
 
 function add_slave_trigger!(seq, slave_trig_chan)
 	wait_entry = wait()
-	slave_trig = Pulse("TRIG", slave_trig_chan, slave_trig_chan.shape_params["length"], 1.0, 0.0, 0.0, 0.0)
+	slave_trig = Pulse("TRIG", slave_trig_chan, slave_trig_chan.shape_params["length"], 1.0, 0.0, 0.0)
 	for (ct,e) in enumerate(seq)
 		if e == wait_entry
 			# try to add to next entry
@@ -139,12 +139,14 @@ function push!(pb_cur::PulseBlock, pb_new::PulseBlock, pulses, paddings)
 	end
 end
 
-function push!(pb_cur::PulseBlock, p::Pulse, pulses, paddings)
+function push!{T<:Union{Pulse, ZPulse}}(pb_cur::PulseBlock, p::T, pulses, paddings)
 	for chan in channels(pb_cur)
 		if chan == p.channel
 			apply_padding!(chan, pb_cur, paddings, pulses)
 			push!(pb_cur.pulses[chan], p)
-			push!(pulses[chan], p)
+			if typeof(p) == Pulse
+				push!(pulses[chan], p)
+			end
 		else
 			paddings[chan] += length(p)
 		end
