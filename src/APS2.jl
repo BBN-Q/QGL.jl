@@ -167,7 +167,7 @@ function create_instrs(seqs, wf_lib, chans, chan_freq)
 	frame_changes = any(typeof(e) == QGL.ZPulse for e in seqs)
 
 	reset_phase_instr = modulation_instr(RESET_PHASE, 0x7)
-	chan_freq_instr = modulation_instr(SET_FREQ, 0x1, round(Int32, chan_freq / FPGA_CLOCK * 2^28 ))
+	chan_freq_instr = modulation_instr(SET_FREQ, 0x1, round(Int32, -chan_freq / FPGA_CLOCK * 2^28 ))
 
 	num_chans = length(chans)
 	time_stamp = zeros(Int, num_chans)
@@ -196,13 +196,14 @@ function create_instrs(seqs, wf_lib, chans, chan_freq)
 						if typeof(next_entry) == QGL.Pulse
 							wf = wf_lib[next_entry]
 							if typeof(chan) == QGL.Qubit
+								# TODO: inject frequency update if necessary
 								push!(instrs, modulation_instr(MODULATE, 0x1, wf.count))
 							end
 							push!(instrs, wf.instruction)
 							time_stamp[ct] += wf.count+1
 						elseif typeof(next_entry) == QGL.ZPulse
 							# round phase to 28 bit integer
-							push!(instrs, modulation_instr(UPDATE_FRAME, 0x1, round(Int32, mod(next_entry.angle, 1) * 2^28 )) )
+							push!(instrs, modulation_instr(UPDATE_FRAME, 0x1, round(Int32, mod(-next_entry.angle, 1) * 2^28 )) )
 						else
 							error("Untranslated pulse block entry")
 						end
