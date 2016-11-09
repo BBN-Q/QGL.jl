@@ -67,7 +67,7 @@ end
 
 function add_slave_trigger!(seq, slave_trig_chan)
 	wait_entry = wait()
-	slave_trig = Pulse("TRIG", slave_trig_chan, slave_trig_chan.shape_params["length"], 1.0, 0.0, 0.0)
+	slave_trig = Pulse("TRIG", slave_trig_chan, slave_trig_chan.shape_params["length"], 1.0)
 	for (ct,e) in enumerate(seq)
 		if e == wait_entry
 			# try to add to next entry

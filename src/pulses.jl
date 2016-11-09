@@ -4,7 +4,7 @@ export X90, X, X90m, Y90, Y, Y90m, Z90, Z, Z90m, Id, ⊗
 
 immutable Pulse
 	label::String
-	channel
+	channel::Channel
 	length::Real
 	amp::Real
 	phase::Real
@@ -17,10 +17,7 @@ immutable ZPulse
 	angle::Real
 end
 
-Pulse(label, channel) = Pulse(label, channel, 0.0, 0.0, 0.0, 0.0)
-Pulse(label, channel, length) = Pulse(label, channel, length, 0.0, 0.0, 0.0)
-Pulse(label, channel, length, amp) = Pulse(label, channel, length, amp, 0.0, 0.0)
-Pulse(label, channel, length, amp, phase) = Pulse(label, channel, length, amp, phase, 0.0)
+Pulse(label::String, channel::Channel, length=0.0, amp=0.0, phase=0.0, frequency=0.0) = Pulse(label, channel, length, amp, phase, frequency)
 
 show(io::IO, p::Pulse) = print(io, "$(p.label)($(p.channel.label))")
 
