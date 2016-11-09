@@ -79,7 +79,7 @@ function Marker(marker_select, count, state, write_flag)
 		transition_words = [0b0000; 0b1000; 0b1100; 0b1110]
 		transition_word = transition_words[count_rem+1]
 	end
-	header = (MARKER << 4) | ((marker_select & 0x3) << 2) | (write_flag & 0x1)
+	header = (MARKER << 4) | (((marker_select-1) & 0x3) << 2) | (write_flag & 0x1)
 	payload = (UInt64(PLAY_WFM) << WFM_OP_OFFSET) | (UInt64(transition_word) << 33) | (UInt64(state) << 32) | quad_count
 	instr = (UInt64(header) << 56) | payload
 	Marker(UInt8(marker_select), state, quad_count, transition_word, write_flag, instr)
