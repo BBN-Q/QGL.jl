@@ -128,9 +128,12 @@ function push!(pb_cur::PulseBlock, pb_new::PulseBlock, pulses, paddings)
 	pb_new_length = length(pb_new)
 	for chan in channels(pb_cur)
 		if chan in channels(pb_new)
+			apply_padding!(chan, pb_cur, paddings, pulses)
 			for p in pb_new.pulses[chan]
 				push!(pb_cur.pulses[chan], p)
-				push!(pulses[chan], p)
+				if typeof(p) == Pulse
+					push!(pulses[chan], p)
+				end
 			end
 			paddings[chan] += pb_new_length - sum(p.length for p in pb_new.pulses[chan])
 		else
