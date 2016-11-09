@@ -106,9 +106,6 @@ Serialize a pulse sequence to a HDF5 file
 """
 function write_sequence_file(filename, seqs, pulses, channel_map)
 
-	# TODO: inject modulation commands
-	# inject_modulation_commands
-
 	# translate pulses to waveform and/or markers
 	instr_lib = Dict{QGL.Pulse, Union{Waveform,Marker}}()
 	wfs = create_wf_instrs!(instr_lib, pulses[channel_map[:ch12]])
@@ -125,6 +122,7 @@ function write_sequence_file(filename, seqs, pulses, channel_map)
 end
 
 const USE_PHASE_OFFSET_INSTRUCTION = false
+const USE_PULSE_FREQUENCY_INSTRUCTION = false
 
 function create_wf_instrs!(instr_lib, pulses)
 	# TODO: better handle Id so we don't generate useless long wfs and have repeated 0 offsets
@@ -134,6 +132,10 @@ function create_wf_instrs!(instr_lib, pulses)
 		wf = p.amp * QGL.waveform(p, DAC_CLOCK)
 		if !USE_PHASE_OFFSET_INSTRUCTION
 			wf *= exp(1im * p.phase)
+		end
+		if !USE_PULSE_FREQUENCY_INSTRUCTION && p.frequency != 0
+			# bake the pulse frequency into the waveform
+			wf .*= exp(-1im * 2π * p.frequency * (1/DAC_CLOCK) * (1:length(wf)) )
 		end
 		# reduce to Int16 with maximum for 14 bit DAC
 		wf = round(Int16, MAX_WAVEFORM_VALUE*real(wf)) + 1im*round(Int16, MAX_WAVEFORM_VALUE*imag(wf))
@@ -163,8 +165,9 @@ function create_instrs(seqs, wf_lib, chans, chan_freq)
 	instrs = APS2Instruction[]
 
 	# sort out whether we have any modulation commands
-	freqs = any(e.frequency != 0 for e in seqs if typeof(e) == QGL.Pulse)
-	frame_changes = any(typeof(e) == QGL.ZPulse for e in seqs)
+	# TODO: use multiple NCOs and determine if we need any modulation instructions
+	# freqs = any(e.frequency != 0 for e in seqs if typeof(e) == QGL.Pulse)
+	# frame_changes = any(typeof(e) == QGL.ZPulse for e in seqs)
 
 	reset_phase_instr = modulation_instr(RESET_PHASE, 0x7)
 	chan_freq_instr = modulation_instr(SET_FREQ, 0x1, round(Int32, -chan_freq / FPGA_CLOCK * 2^28 ))

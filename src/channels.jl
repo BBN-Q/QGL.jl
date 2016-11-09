@@ -47,3 +47,24 @@ end
 
 ==(a::Channel, b::Channel) = a.label == b.label
 hash(c::Channel) = hash(c.label)
+
+immutable Measurement <: Channel
+	label::String
+	awg_channel::String
+	gate_channel::String
+	trigger_channel::String
+	shape_params::Dict{Any,Any}
+	frequency::Real
+end
+
+function measurement_channel(q::Qubit)
+	# look up measurement channel with convention of "M-q"
+	m_label = "M-"*q.label
+	m = pyQGL.ChannelLibrary[:channelLib][:channelDict][m_label]
+	phys_chan = typeof(m[:physChan]) == Void ? "" : m[:physChan][:label]
+	gate_chan = typeof(m[:gateChan]) == Void ? "" : m[:gateChan][:label]
+	trig_chan = typeof(m[:trigChan]) == Void ? "" : m[:trigChan][:label]
+	pulse_params = m[:pulseParams]
+	pulse_params["autodyne_freq"]= m[:autodyneFreq]
+	Measurement(m_label, phys_chan, gate_chan, trig_chan, pulse_params, m[:frequency])
+end

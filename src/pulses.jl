@@ -1,6 +1,6 @@
 import Base: convert, promote_rule, length
 
-export X90, X, X90m, Y90, Y, Y90m, Z90, Z, Z90m, Id, ⊗
+export X90, X, X90m, Y90, Y, Y90m, Z90, Z, Z90m, Id, ⊗, MEAS
 
 immutable Pulse
 	label::String
@@ -73,10 +73,11 @@ end
 convert(::Type{PulseBlock}, p::Pulse) = PulseBlock(Dict(p.channel => [p]))
 PulseBlock(p::Pulse) = convert(PulseBlock, p)
 PulseBlock(chans::Set{Channel}) = PulseBlock(Dict{Channel, Vector{Pulse}}(chan => Pulse[] for chan in chans))
+promote_rule(::Type{Pulse}, ::Type{PulseBlock}) = PulseBlock
 ⊗(x::Pulse, y::Pulse) = ⊗(PulseBlock(x), PulseBlock(y))
 ⊗(x::Pulse, y::PulseBlock) = ⊗(PulseBlock(x), y)
+⊗(x::PulseBlock, y::Pulse) = ⊗(x, PulseBlock(y))
 ⊗(x::PulseBlock, y::PulseBlock) = PulseBlock(merge(x.pulses, y.pulses))
-promote_rule(::Type{Pulse}, ::Type{PulseBlock}) = PulseBlock
 
 channels(pb::PulseBlock) = keys(pb.pulses)
 
@@ -100,4 +101,16 @@ function waveform(p::Pulse, sampling_rate)
 	shape_params[:samplingRate] = sampling_rate
 	shape_params[:length] = p.length
 	return shape_params[:shapeFun](;shape_params...)
+end
+
+function MEAS(q::Qubit)
+	m = measurement_channel(q)
+	meas_pulse = Pulse("MEAS", m, m.shape_params["length"], m.shape_params["amp"], 0.0, m.shape_params["autodyne_freq"])
+	pb = PulseBlock(meas_pulse)
+	if m.trigger_channel != ""
+		t = Marker(m.trigger_channel)
+		trig_pulse = Pulse("TRIG", t, t.shape_params["length"], 1.0)
+		pb = pb ⊗ trig_pulse
+	end
+	return pb
 end
