@@ -1,6 +1,6 @@
 import Base: convert, promote_rule, length
 
-export X90, X, X90m, Y90, Y, Y90m, Z90, Z, Z90m, Id, ⊗, MEAS
+export X90, X, X90m, Y90, Y, Y90m, Z90, Z, Z90m, Id, ⊗, MEAS, AC, DiAC
 
 immutable Pulse
 	label::String
@@ -65,6 +65,37 @@ function AC(q::Qubit, num)
 
 end
 
+function DiAC(q::Qubit, num)
+
+	angles = [
+    [0, 1, 1],
+    [0.5, -0.5, 0.5],
+    [0, 0, 0],
+    [0.5, 0.5, 0.5],
+    [0, -0.5, 1],
+    [0, 0, 1],
+    [0, 0.5, 1],
+    [0, 1, -0.5],
+    [0, 1, 0],
+    [0, 1, 0.5],
+    [0, 0, 0.5],
+    [0, 0, -0.5],
+    [1, -0.5, 1],
+    [1, 0.5, 1],
+    [0.5, -0.5, -0.5],
+    [0.5, 0.5, -0.5],
+    [0.5, -0.5, 1],
+    [1, -0.5, -0.5],
+    [0, 0.5, -0.5],
+    [-0.5, -0.5, 1],
+    [1, 0.5, -0.5],
+    [0.5, 0.5, 1],
+    [0, -0.5, -0.5],
+    [-0.5, 0.5, 1]
+		]/2
+	return [Z(q, angles[num][1]), X90(q), Z(q, angles[num][2]), X90(q), Z(q, angles[num][3])]
+
+end
 
 type PulseBlock
 	pulses::Dict{Channel, Vector{Union{Pulse, ZPulse}}}
