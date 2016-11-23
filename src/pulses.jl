@@ -65,6 +65,11 @@ function AC(q::Qubit, num)
 
 end
 
+"""
+	DiAC(q, num)
+
+	Return the single qubit Clifford `num` in "diatomic" form: Z(α) - X90 - Z(β) - X90 - Z(γ)
+"""
 function DiAC(q::Qubit, num)
 	angles = 0.5 * [
 		[ 0.0,  1.0,  1.0],
