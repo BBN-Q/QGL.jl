@@ -66,7 +66,6 @@ function AC(q::Qubit, num)
 end
 
 function DiAC(q::Qubit, num)
-
 	angles = 0.5 * [
 		[ 0.0,  1.0,  1.0],
 		[ 0.5, -0.5,  0.5],
@@ -93,8 +92,7 @@ function DiAC(q::Qubit, num)
 		[ 0.0, -0.5, -0.5],
 		[-0.5,  0.5,  1.0]
 		]
-	return [Z(q, angles[num][1]), X90(q), Z(q, angles[num][2]), X90(q), Z(q, angles[num][3])]
-
+	return PulseBlock(Dict(q => [Z(q, angles[num][1]), X90(q), Z(q, angles[num][2]), X90(q), Z(q, angles[num][3])]))
 end
 
 type PulseBlock
@@ -104,6 +102,7 @@ end
 convert(::Type{PulseBlock}, p::Pulse) = PulseBlock(Dict(p.channel => [p]))
 PulseBlock(p::Pulse) = convert(PulseBlock, p)
 PulseBlock(chans::Set{Channel}) = PulseBlock(Dict{Channel, Vector{Pulse}}(chan => Pulse[] for chan in chans))
+
 promote_rule(::Type{Pulse}, ::Type{PulseBlock}) = PulseBlock
 ⊗(x::Pulse, y::Pulse) = ⊗(PulseBlock(x), PulseBlock(y))
 ⊗(x::Pulse, y::PulseBlock) = ⊗(PulseBlock(x), y)
@@ -123,7 +122,6 @@ end
 
 length(p::Pulse) = p.length
 length(pb::PulseBlock) = maximum(sum(p.length for p in ps) for ps in values(pb.pulses))
-
 
 # TODO: make native and handle TA pairs
 function waveform(p::Pulse, sampling_rate)
