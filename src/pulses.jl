@@ -119,7 +119,7 @@ channels(pb::PulseBlock) = keys(pb.pulses)
 function show(io::IO, pb::PulseBlock)
 	strs = []
 	for ps = values(pb.pulses)
-		push!(strs, "(" * join([string(p) for p in ps], ",") * ")")
+		push!(strs, "(" * join([string(p) for p in ps], ", ") * ")")
 	end
 	str = join(strs, "⊗")
 	print(io, "[$str]")
