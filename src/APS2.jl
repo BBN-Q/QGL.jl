@@ -171,6 +171,7 @@ function create_instrs(seqs, wf_lib, chans, chan_freq)
 
 	reset_phase_instr = modulation_instr(RESET_PHASE, 0x7)
 	chan_freq_instr = modulation_instr(SET_FREQ, 0x1, round(Int32, -chan_freq / FPGA_CLOCK * 2^28 ))
+	sync_instr = convert(APS2Instruction, QGL.sync())
 
 	num_chans = length(chans)
 	time_stamp = zeros(Int, num_chans)
@@ -221,6 +222,8 @@ function create_instrs(seqs, wf_lib, chans, chan_freq)
 		else
 			# convert control flow to APS2Instruction
 			if entry.op == QGL.WAIT
+				# heuristic to inject SYNC before a wait
+				push!(instrs, sync_instr)
 				# heuristic to reset modulation engine phase and frame before wait for trigger
 				push!(instrs, reset_phase_instr)
 				push!(instrs, chan_freq_instr)
@@ -236,9 +239,11 @@ end
 
 function convert(::Type{APS2Instruction}, cf::QGL.ControlFlow)
 	if cf.op == QGL.WAIT
-		return APS2Instruction(WAIT << 4 | 0x1) << 56
+		return UInt64(WAIT << 4 | 0x1) << 56
 	elseif cf.op == QGL.GOTO
-		return APS2Instruction(GOTO << 4 | 0x1) << 56 | UInt64(cf.target)
+		return UInt64(GOTO << 4 | 0x1) << 56 | UInt64(cf.target)
+	elseif cf.op == QGL.SYNC
+		return UInt64(SYNC << 4 | 0x1) << 56 | UInt64(WAIT_SYNC << WFM_OP_OFFSET)
 	else
 		error("Untranslated control flow instruction")
 	end

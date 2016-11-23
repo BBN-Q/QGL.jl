@@ -10,7 +10,7 @@ immutable ControlFlow
 end
 
 wait() = ControlFlow("INIT", WAIT, 0, 0)
-
+sync() = ControlFlow("SYNC", SYNC, 0, 0)
 goto(target) = ControlFlow("GOTO", GOTO, target, 0)
 
 function show(io::IO, cf::ControlFlow)
