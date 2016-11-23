@@ -94,7 +94,7 @@ function compile(seq)
 			end
 			push!(seqs, entry)
 		else
-			if length(seqs) > 0 && typeof(seqs[end]) == ControlFlow
+			if (length(seqs) == 0) || (typeof(seqs[end]) == ControlFlow)
 				push!(seqs, PulseBlock(chans))
 			end
 			push!(seqs[end], entry, pulses, paddings)
