@@ -26,7 +26,7 @@ function compile_to_hardware{T}(seqs::Vector{Vector{T}}, base_filename)
 	compile_to_hardware(flatten_seqs(seqs), base_filename)
 end
 
-function compile_to_hardware(seq::Vector{SequenceEntry}, base_filename; suffix="")
+function compile_to_hardware{T}(seq::Vector{T}, base_filename; suffix="")
 
 	# TODO: save input code to file as metadata
 	#save_code(seq)
