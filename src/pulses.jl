@@ -126,7 +126,7 @@ function show(io::IO, pb::PulseBlock)
 end
 
 length(p::Pulse) = p.length
-length(pb::PulseBlock) = maximum(sum(p.length for p in ps) for ps in values(pb.pulses))
+length(pb::PulseBlock) = maximum(sum(length(p) for p in ps) for ps in values(pb.pulses))
 
 # TODO: make native and handle TA pairs
 function waveform(p::Pulse, sampling_rate)

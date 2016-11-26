@@ -135,7 +135,7 @@ function push!(pb_cur::PulseBlock, pb_new::PulseBlock, pulses, paddings)
 					push!(pulses[chan], p)
 				end
 			end
-			paddings[chan] += pb_new_length - sum(p.length for p in pb_new.pulses[chan])
+			paddings[chan] += pb_new_length - sum(length(p) for p in pb_new.pulses[chan])
 		else
 			paddings[chan] += pb_new_length
 		end
