@@ -104,14 +104,18 @@ type PulseBlock
 	pulses::Dict{Channel, Vector{Union{Pulse, ZPulse}}}
 end
 
-convert(::Type{PulseBlock}, p::Pulse) = PulseBlock(Dict(p.channel => [p]))
-PulseBlock(p::Pulse) = convert(PulseBlock, p)
-PulseBlock(chans::Set{Channel}) = PulseBlock(Dict{Channel, Vector{Pulse}}(chan => Pulse[] for chan in chans))
+convert{T<:Union{Pulse, ZPulse}}(::Type{PulseBlock}, p::T) = PulseBlock(Dict(p.channel => [p]))
+PulseBlock{T<:Union{Pulse, ZPulse}}(p::T) = convert(PulseBlock, p)
+PulseBlock(chans::Set{Channel}) = PulseBlock(Dict{Channel, Vector{Union{Pulse, ZPulse}}}(chan => Union{Pulse, ZPulse}[] for chan in chans))
 
 promote_rule(::Type{Pulse}, ::Type{PulseBlock}) = PulseBlock
+promote_rule(::Type{ZPulse}, ::Type{PulseBlock}) = PulseBlock
 ⊗(x::Pulse, y::Pulse) = ⊗(PulseBlock(x), PulseBlock(y))
 ⊗(x::Pulse, y::PulseBlock) = ⊗(PulseBlock(x), y)
 ⊗(x::PulseBlock, y::Pulse) = ⊗(x, PulseBlock(y))
+⊗(x::ZPulse, y::ZPulse) = ⊗(PulseBlock(x), PulseBlock(y))
+⊗(x::ZPulse, y::PulseBlock) = ⊗(PulseBlock(x), y)
+⊗(x::PulseBlock, y::ZPulse) = ⊗(x, PulseBlock(y))
 ⊗(x::PulseBlock, y::PulseBlock) = PulseBlock(merge(x.pulses, y.pulses))
 
 channels(pb::PulseBlock) = keys(pb.pulses)
