@@ -130,6 +130,10 @@ function push!(pb_cur::PulseBlock, pb_new::PulseBlock, pulses, paddings)
 		if chan in channels(pb_new)
 			apply_padding!(chan, pb_cur, paddings, pulses)
 			for p in pb_new.pulses[chan]
+				#elide zero-length Pulses
+				if typeof(p) == Pulse && length(p) == 0
+					continue
+				end
 				push!(pb_cur.pulses[chan], p)
 				if typeof(p) == Pulse
 					push!(pulses[chan], p)
