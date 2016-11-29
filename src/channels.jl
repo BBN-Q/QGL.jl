@@ -86,5 +86,5 @@ function Edge(source::Qubit, target::Qubit)
 	e_chan = pyQGL.EdgeFactory(py_source, py_target)
 	phys_chan = typeof(e_chan[:physChan]) == Void ? "" : e_chan[:physChan][:label]
 	gate_chan = typeof(e_chan[:gateChan]) == Void ? "" : e_chan[:gateChan][:label]
-	Edge(e_label, phys_chan, gate_chan, e_chan[:pulseParams], e_chan[:frequency], source, target)
+	Edge(e_chan[:label], phys_chan, gate_chan, e_chan[:pulseParams], e_chan[:frequency], source, target)
 end

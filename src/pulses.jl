@@ -1,6 +1,6 @@
 import Base: convert, promote_rule, length
 
-export X90, X, X90m, Y90, Y, Y90m, U90, UΘ, Z90, Z, Z90m, Id, ⊗, MEAS, AC, DiAC
+export X90, X, X90m, Y90, Y, Y90m, U90, UΘ, Z90, Z, Z90m, Id, ⊗, MEAS, AC, DiAC, ZX90_CR
 
 immutable Pulse
 	label::String
@@ -35,8 +35,8 @@ for (func, label, amp, phase) in [
 end
 
 U90(q::Qubit, phase::Float64 = 0.0) = Pulse("U90", q, q.shape_params["length"], 0.25, phase, 0)
-UΘ(q::Qubit, angle::Float64, phase::Float64) = Pulse("UΘ", q, q.shape_params["length"], angle, phase, 0)
-UΘ(q::Qubit, angle::Float64, phase::Float64, shape::String) = Pulse("UΘ", q, q.shape_params["length"], angle, phase, 0, pyQGL.PulseShapes[Symbol(shape)])
+UΘ(q::Union{Qubit, Edge}, angle::Float64, phase::Float64) = Pulse("UΘ", q, q.shape_params["length"], angle, phase, 0)
+UΘ(q::Union{Qubit, Edge}, angle::Float64, phase::Float64, shape::String) = Pulse("UΘ", q, q.shape_params["length"], angle, phase, 0, pyQGL.PulseShapes[Symbol(shape)])
 
 Z(q::Qubit, angle=0.5) = ZPulse("Z", q, angle)
 Z90(q::Qubit) = ZPulse("Z90", q, 0.25)
@@ -158,4 +158,13 @@ function MEAS(q::Qubit)
 		pb = pb ⊗ trig_pulse
 	end
 	return pb
+end
+
+function flat_top_gaussian(chan)
+	return PulseBlock(Dict(chan => [UΘ(chan, chan.shape_params["amp"], chan.shape_params["phase"], "gaussOn"),UΘ(chan, chan.shape_params["amp"], chan.shape_params["phase"], "constant"),  UΘ(chan, chan.shape_params["amp"], chan.shape_params["phase"], "gaussOff")]))
+end
+
+function ZX90_CR(qc::Qubit, qt::Qubit)
+	CRchan = Edge(qc, qt)
+  return [flat_top_gaussian(CRchan), X(qc), flat_top_gaussian(CRchan), X(qc)]
 end
