@@ -1,6 +1,6 @@
 import Base: convert, promote_rule, length
 
-export X90, X, X90m, Y90, Y, Y90m, Z90, Z, Z90m, Id, ⊗, MEAS, AC, DiAC
+export X90, X, X90m, Y90, Y, Y90m, U90, UΘ, Z90, Z, Z90m, Id, ⊗, MEAS, AC, DiAC
 
 immutable Pulse
 	label::String
@@ -32,6 +32,9 @@ for (func, label, amp, phase) in [
 	]
 	@eval $func(q) = Pulse($label, q, q.shape_params["length"], q.shape_params[$amp], $phase, 0)
 end
+
+U90(q::Qubit, phase=0) = Pulse("U90", q, q.shape_params["length"], 0.25, phase, 0)
+UΘ(q::Qubit, angle=0, phase=0) = Pulse("UΘ", q, q.shape_params["length"], angle, phase, 0)
 
 Z(q::Qubit, angle=0.5) = ZPulse("Z", q, angle)
 Z90(q::Qubit) = ZPulse("Z90", q, 0.25)
