@@ -144,6 +144,7 @@ function waveform(p::Pulse, sampling_rate)
 	shape_params = Dict(Symbol(k) => v for (k,v) in p.channel.shape_params)
 	shape_params[:samplingRate] = sampling_rate
 	shape_params[:length] = p.length
+	shape_params[:shapeFun] = p.shapeFun
 	return shape_params[:shapeFun](;shape_params...)
 end
 
