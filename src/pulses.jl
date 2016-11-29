@@ -9,6 +9,7 @@ immutable Pulse
 	amp::Float64
 	phase::Float64
 	frequency::Float64
+	shapeFun::PyObject
 end
 
 immutable ZPulse
@@ -17,8 +18,8 @@ immutable ZPulse
 	angle::Float64
 end
 
-Pulse(label::String, channel::Channel, length::Real=0.0, amp::Real=0.0, phase::Real=0.0, frequency::Real=0.0) =
-	Pulse(label, channel, Float64(length), Float64(amp), Float64(phase), Float64(frequency))
+Pulse(label::String, channel::Channel, length::Real=0.0, amp::Real=0.0, phase::Real=0.0, frequency::Real=0.0, shapeFun::PyObject=channel.shape_params["shapeFun"]) =
+	Pulse(label, channel, Float64(length), Float64(amp), Float64(phase), Float64(frequency), shapeFun)
 
 show(io::IO, p::Pulse) = print(io, "$(p.label)($(p.channel.label))")
 
@@ -33,8 +34,9 @@ for (func, label, amp, phase) in [
 	@eval $func(q) = Pulse($label, q, q.shape_params["length"], q.shape_params[$amp], $phase, 0)
 end
 
-U90(q::Qubit, phase=0) = Pulse("U90", q, q.shape_params["length"], 0.25, phase, 0)
-UΘ(q::Qubit, angle=0, phase=0) = Pulse("UΘ", q, q.shape_params["length"], angle, phase, 0)
+U90(q::Qubit, phase::Float64 = 0.0) = Pulse("U90", q, q.shape_params["length"], 0.25, phase, 0)
+UΘ(q::Qubit, angle::Float64, phase::Float64) = Pulse("UΘ", q, q.shape_params["length"], angle, phase, 0)
+UΘ(q::Qubit, angle::Float64, phase::Float64, shape::String) = Pulse("UΘ", q, q.shape_params["length"], angle, phase, 0, pyQGL.PulseShapes[Symbol(shape)])
 
 Z(q::Qubit, angle=0.5) = ZPulse("Z", q, angle)
 Z90(q::Qubit) = ZPulse("Z90", q, 0.25)
