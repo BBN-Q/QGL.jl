@@ -1,6 +1,6 @@
 import Base: convert, promote_rule, length
 
-export X90, X, X90m, Y90, Y, Y90m, U90, Uθ, Z90, Z, Z90m, Id, ⊗, MEAS, AC, DiAC, ZX90_CR
+export X90, X, X90m, Y90, Y, Y90m, U90, Uθ, Z90, Z, Z90m, Id, ⊗, MEAS, AC, DiAC, ZX90
 
 immutable Pulse
 	label::String
@@ -162,10 +162,10 @@ function MEAS(q::Qubit)
 end
 
 function flat_top_gaussian(chan)
-	return PulseBlock(Dict(chan => [Uθ(chan, chan.shape_params["riseFall"], chan.shape_params["amp"], chan.shape_params["phase"], "gaussOn"),Uθ(chan, chan.shape_params["length"], chan.shape_params["amp"], chan.shape_params["phase"], "constant"),  Uθ(chan, chan.shape_params["amp"], chan.shape_params["riseFall"], chan.shape_params["phase"], "gaussOff")]))
+	return [Uθ(chan, chan.shape_params["riseFall"], chan.shape_params["amp"], chan.shape_params["phase"], "gaussOn"),Uθ(chan, chan.shape_params["length"], chan.shape_params["amp"], chan.shape_params["phase"], "constant"),  Uθ(chan, chan.shape_params["amp"], chan.shape_params["riseFall"], chan.shape_params["phase"], "gaussOff")]
 end
 
-function ZX90_CR(qc::Qubit, qt::Qubit)
-	CRchan = Edge(qc, qt)
-  return [flat_top_gaussian(CRchan), X(qc), flat_top_gaussian(CRchan), X(qc)]
+function ZX90(qc::Qubit, qt::Qubit)
+	CRchan = Edge(qc,qt)
+  return PulseBlock(Dict(CRchan => vcat(flat_top_gaussian(CRchan), [Id(CRchan, qc.shape_params["length"])], flat_top_gaussian(CRchan), [Id(CRchan, qc.shape_params["length"])]), qc => [Id(qc, CRchan.shape_params["length"]+2*CRchan.shape_params["riseFall"]), X(qc), Id(qc, CRchan.shape_params["length"]+2*CRchan.shape_params["riseFall"]), X(qc)]))
 end
