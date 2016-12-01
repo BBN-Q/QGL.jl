@@ -1,4 +1,4 @@
-import Base: convert, promote_rule, length
+import Base: convert, promote_rule, length, ==
 
 export X90, X, X90m, Y90, Y, Y90m, Z90, Z, Z90m, Id, ⊗, MEAS, AC, DiAC
 
@@ -9,7 +9,27 @@ immutable Pulse
 	amp::Float64
 	phase::Float64
 	frequency::Float64
+	hash::UInt
 end
+
+_hash(p::Pulse) =
+	hash(p.label,
+	hash(p.channel,
+	hash(p.length,
+	hash(p.amp,
+	hash(p.phase,
+	hash(p.frequency ))))))
+
+function Pulse(label::String, channel::Channel, length::Real=0.0, amp::Real=0.0, phase::Real=0.0, frequency::Real=0.0)
+	# precompute pulse has we'll call it for each pulse we compile
+	pulse_hash = hash(label, hash(channel, hash(length, hash(amp, hash(phase, hash(frequency ))))))
+	Pulse(label, channel, Float64(length), Float64(amp), Float64(phase), Float64(frequency), pulse_hash)
+end
+
+==(a::Pulse, b::Pulse) = a.hash == b.hash
+hash(p::Pulse, h::UInt) = hash(p.hash, h)
+
+show(io::IO, p::Pulse) = print(io, "$(p.label)($(p.channel.label))")
 
 immutable ZPulse
 	label::String
@@ -17,10 +37,7 @@ immutable ZPulse
 	angle::Float64
 end
 
-Pulse(label::String, channel::Channel, length::Real=0.0, amp::Real=0.0, phase::Real=0.0, frequency::Real=0.0) =
-	Pulse(label, channel, Float64(length), Float64(amp), Float64(phase), Float64(frequency))
 
-show(io::IO, p::Pulse) = print(io, "$(p.label)($(p.channel.label))")
 
 for (func, label, amp, phase) in [
 	(:X90,  "X90",  "pi2Amp", 0),
