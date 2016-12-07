@@ -239,11 +239,11 @@ end
 
 function convert(::Type{APS2Instruction}, cf::QGL.ControlFlow)
 	if cf.op == QGL.WAIT
-		return UInt64(WAIT << 4 | 0x1) << 56
+		return UInt64(WAIT << 4 | 0x1) << 56 | UInt64(WAIT_TRIG) << WFM_OP_OFFSET
 	elseif cf.op == QGL.GOTO
 		return UInt64(GOTO << 4 | 0x1) << 56 | UInt64(cf.target)
 	elseif cf.op == QGL.SYNC
-		return UInt64(SYNC << 4 | 0x1) << 56 | UInt64(WAIT_SYNC << WFM_OP_OFFSET)
+		return UInt64(SYNC << 4 | 0x1) << 56 | UInt64(WAIT_SYNC) << WFM_OP_OFFSET
 	else
 		error("Untranslated control flow instruction")
 	end
