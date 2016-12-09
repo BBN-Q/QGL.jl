@@ -30,10 +30,10 @@ BenchmarkTools.Trial:
   evals/sample:     1
   time tolerance:   5.00%
   memory tolerance: 1.00%
-  memory estimate:  1.22 gb
-  allocs estimate:  53224096
-  minimum time:     6.88 s (3.50% GC)
-  median time:      6.88 s (3.50% GC)
-  mean time:        6.88 s (3.50% GC)
-  maximum time:     6.88 s (3.50% GC)
+  memory estimate:  1.17 gb
+  allocs estimate:  49861989
+  minimum time:     5.87 s (3.44% GC)
+  median time:      5.87 s (3.44% GC)
+  mean time:        5.87 s (3.44% GC)
+  maximum time:     5.87 s (3.44% GC)
 ```
