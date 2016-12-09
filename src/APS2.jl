@@ -115,7 +115,7 @@ function write_sequence_file(filename, seqs, pulses, channel_map)
 		end
 	end
 
-	# create instructions and waveforms
+	# create instructions
 	instrs = create_instrs(seqs, instr_lib, collect(values(channel_map)),channel_map[:ch12].frequency)
 
 	write_to_file(filename, instrs, wfs)
@@ -161,6 +161,7 @@ function create_marker_instrs!(instr_lib, pulses, marker_chan)
 	end
 end
 
+
 function create_instrs(seqs, wf_lib, chans, chan_freq)
 	instrs = APS2Instruction[]
 
@@ -184,9 +185,9 @@ function create_instrs(seqs, wf_lib, chans, chan_freq)
 			# zero-out status vectors
 			fill!(time_stamp, 0)
 			fill!(idx, 1)
-			fill!(all_done, false)
 			for (ct, chan) in enumerate(chans)
 				num_entries[ct] = length(entry.pulses[chan])
+				all_done[ct] = num_entries[ct] == 0
 			end
 
 			# serialize pulses from the PulseBlock
