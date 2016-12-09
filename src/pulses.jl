@@ -124,7 +124,8 @@ end
 
 convert{T<:Union{Pulse, ZPulse}}(::Type{PulseBlock}, p::T) = PulseBlock(Dict(p.channel => [p]))
 PulseBlock{T<:Union{Pulse, ZPulse}}(p::T) = convert(PulseBlock, p)
-PulseBlock(chans::Set{Channel}) = PulseBlock(Dict{Channel, Vector{Union{Pulse, ZPulse}}}(chan => Union{Pulse, ZPulse}[] for chan in chans))
+PulseBlock{T<:Channel}(chans::Set{T}) = PulseBlock(Dict{Channel, Vector{Union{Pulse, ZPulse}}}(chan => Union{Pulse, ZPulse}[] for chan in chans))
+PulseBlock{T<:Channel}(chans::Vector{T}) = PulseBlock(Dict{Channel, Vector{Union{Pulse, ZPulse}}}(chan => Union{Pulse, ZPulse}[] for chan in chans))
 
 promote_rule(::Type{Pulse}, ::Type{PulseBlock}) = PulseBlock
 promote_rule(::Type{ZPulse}, ::Type{PulseBlock}) = PulseBlock
