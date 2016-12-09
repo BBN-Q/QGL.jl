@@ -10,7 +10,7 @@ Preliminary benchmarks show speed-ups for Python QGL of ~25-30X.
 In the absence of proper benchmarking and regression testing we use the 1 qubit
 GST sequences from [QGL issue #69](https://github.com/BBN-Q/QGL/issues/69) and
 the sequence creation script in `test/benchmark.jl`. With `q1` having 20ns
-pulses and 100MHz sidebanding frequency and at commit 85d937d:
+pulses and 100MHz sidebanding frequency and at commit 3a12d61:
 
 ```julia
 julia> push!(LOAD_PATH, "/home/cryan/Programming/Repos/QGL.jl/src");
@@ -37,3 +37,7 @@ BenchmarkTools.Trial:
   mean time:        5.87 s (3.44% GC)
   maximum time:     5.87 s (3.44% GC)
 ```
+
+## License
+
+Apache License v2.0
