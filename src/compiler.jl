@@ -43,12 +43,19 @@ function compile_to_hardware{T}(seq::Vector{T}, base_filename; suffix="")
 
 	seqs, pulses, chans = compile(seq)
 
+	# normalize and inject the channel delays
+	chan_lib = QGL.pyQGL.ChannelLibrary[:channelLib][:channelDict]
+	chan_delays = Dict(chan => chan_lib[chan.awg_channel][:delay] for chan in chans)
+	normalize_channel_delays!(chan_delays)
+	inject_channel_delays!(seqs, pulses, chan_delays)
+
 	# map the labeled channels to physical channels and bundle per APS/AWG
 	AWGs = Dict{String, Dict}()
 	for chan in chans
 		# look up AWG and channel from convention of AWG-chan
 		# TODO: make native and explicit
 		(awg, chan_str) = split(chan.awg_channel, '-')
+		# TODO: map is currently only for APS2 - should be looked up from somewhere
 		chan_str_map = Dict("12"=>:ch12, "12m1"=>:m1, "12m2"=>:m2, "12m3"=>:m3, "12m4"=>:m4)
 		get!(AWGs, awg, Dict{Symbol, Channel}())[chan_str_map[chan_str]] = chan
 	end
@@ -58,7 +65,7 @@ function compile_to_hardware{T}(seq::Vector{T}, base_filename; suffix="")
 		# use first channel to lookup translator from pyQGL
 		# TODO: make native and explicit
 		first_chan = collect(values(ch_map))[1]
-		phys_chan = QGL.pyQGL.ChannelLibrary[:channelLib][:channelDict][first_chan.awg_channel]
+		phys_chan = chan_lib[first_chan.awg_channel]
 		translator = translator_map[ phys_chan[:translator] ]
 		translator.write_sequence_file(base_filename*"-$awg.h5", seqs, pulses, ch_map)
 	end
@@ -123,6 +130,36 @@ function channels(seq)
 	end
 	return chans
 end
+
+"""
+Shifts global channel delay such that all delays are >= 0
+"""
+function normalize_channel_delays!(chan_delays)
+	min_delay = minimum(values(chan_delays))
+	for (c,d) in chan_delays
+		chan_delays[c] -= min_delay
+	end
+end
+
+function inject_channel_delays!(seqs, pulses, chan_delays)
+
+	delay_block = PulseBlock(collect(keys(chan_delays)))
+
+	for (c,d) in chan_delays
+		if d > 0
+			p = QGL.Id(c, d)
+			push!(delay_block.pulses[c], p)
+			push!(pulses[c], p)
+		end
+	end
+
+	for ct = length(seqs):-1:1
+		if typeof(seqs[ct]) == QGL.ControlFlow && (seqs[ct].op == QGL.WAIT || seqs[ct].op == QGL.SYNC)
+			insert!(seqs, ct+1, delay_block)
+		end
+	end
+end
+
 
 function push!(pb_cur::PulseBlock, pb_new::PulseBlock, pulses, paddings)
 	pb_new_length = length(pb_new)
