@@ -19,12 +19,13 @@ _hash(p::Pulse) =
 	hash(p.length,
 	hash(p.amp,
 	hash(p.phase,
-	hash(p.frequency ))))))
+	hash(p.frequency,
+	hash(p.shapeFun)))))))
 
-function Pulse(label::String, channel::Channel, length::Real=0.0, amp::Real=0.0, phase::Real=0.0, frequency::Real=0.0)
+function Pulse(label::String, channel::Channel, length::Real=0.0, amp::Real=0.0, phase::Real=0.0, frequency::Real=0.0, shapeFun::PyObject=channel.shape_params["shapeFun"])
 	# precompute pulse has we'll call it for each pulse we compile
-	pulse_hash = hash(label, hash(channel, hash(length, hash(amp, hash(phase, hash(frequency ))))))
-	Pulse(label, channel, Float64(length), Float64(amp), Float64(phase), Float64(frequency), pulse_hash)
+	pulse_hash = hash(label, hash(channel, hash(length, hash(amp, hash(phase, hash(frequency, hash(shapeFun)))))))
+	Pulse(label, channel, Float64(length), Float64(amp), Float64(phase), Float64(frequency), shapeFun, pulse_hash)
 end
 
 ==(a::Pulse, b::Pulse) = a.hash == b.hash
@@ -38,8 +39,6 @@ immutable ZPulse
 	angle::Float64
 end
 
-Pulse(label::String, channel::Channel, length::Real=0.0, amp::Real=0.0, phase::Real=0.0, frequency::Real=0.0, shapeFun::PyObject=channel.shape_params["shapeFun"]) =
-	Pulse(label, channel, Float64(length), Float64(amp), Float64(phase), Float64(frequency), shapeFun)
 
 for (func, label, amp, phase) in [
 	(:X90,  "X90",  "pi2Amp", 0),
