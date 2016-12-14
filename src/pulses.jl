@@ -1,4 +1,4 @@
-import Base: convert, promote_rule, length
+import Base: convert, promote_rule, length, ==
 
 export X90, X, X90m, Y90, Y, Y90m, U90, Uθ, Z90, Z, Z90m, Id, ⊗, MEAS, AC, DiAC, ZX90
 
@@ -10,7 +10,27 @@ immutable Pulse
 	phase::Float64
 	frequency::Float64
 	shapeFun::PyObject
+	hash::UInt
 end
+
+_hash(p::Pulse) =
+	hash(p.label,
+	hash(p.channel,
+	hash(p.length,
+	hash(p.amp,
+	hash(p.phase,
+	hash(p.frequency ))))))
+
+function Pulse(label::String, channel::Channel, length::Real=0.0, amp::Real=0.0, phase::Real=0.0, frequency::Real=0.0)
+	# precompute pulse has we'll call it for each pulse we compile
+	pulse_hash = hash(label, hash(channel, hash(length, hash(amp, hash(phase, hash(frequency ))))))
+	Pulse(label, channel, Float64(length), Float64(amp), Float64(phase), Float64(frequency), pulse_hash)
+end
+
+==(a::Pulse, b::Pulse) = a.hash == b.hash
+hash(p::Pulse, h::UInt) = hash(p.hash, h)
+
+show(io::IO, p::Pulse) = print(io, "$(p.label)($(p.channel.label))")
 
 immutable ZPulse
 	label::String
@@ -20,8 +40,6 @@ end
 
 Pulse(label::String, channel::Channel, length::Real=0.0, amp::Real=0.0, phase::Real=0.0, frequency::Real=0.0, shapeFun::PyObject=channel.shape_params["shapeFun"]) =
 	Pulse(label, channel, Float64(length), Float64(amp), Float64(phase), Float64(frequency), shapeFun)
-
-show(io::IO, p::Pulse) = print(io, "$(p.label)($(p.channel.label))")
 
 for (func, label, amp, phase) in [
 	(:X90,  "X90",  "pi2Amp", 0),
@@ -113,7 +131,8 @@ end
 
 convert{T<:Union{Pulse, ZPulse}}(::Type{PulseBlock}, p::T) = PulseBlock(Dict(p.channel => [p]))
 PulseBlock{T<:Union{Pulse, ZPulse}}(p::T) = convert(PulseBlock, p)
-PulseBlock(chans::Set{Channel}) = PulseBlock(Dict{Channel, Vector{Union{Pulse, ZPulse}}}(chan => Union{Pulse, ZPulse}[] for chan in chans))
+PulseBlock{T<:Channel}(chans::Set{T}) = PulseBlock(Dict{Channel, Vector{Union{Pulse, ZPulse}}}(chan => Union{Pulse, ZPulse}[] for chan in chans))
+PulseBlock{T<:Channel}(chans::Vector{T}) = PulseBlock(Dict{Channel, Vector{Union{Pulse, ZPulse}}}(chan => Union{Pulse, ZPulse}[] for chan in chans))
 
 promote_rule(::Type{Pulse}, ::Type{PulseBlock}) = PulseBlock
 promote_rule(::Type{ZPulse}, ::Type{PulseBlock}) = PulseBlock
@@ -130,10 +149,12 @@ channels(pb::PulseBlock) = keys(pb.pulses)
 function show(io::IO, pb::PulseBlock)
 	strs = []
 	for ps = values(pb.pulses)
-		push!(strs, "(" * join([string(p) for p in ps], ", ") * ")")
+		if length(ps) > 0
+			push!(strs, "(" * join([string(p) for p in ps], ", ") * ")")
+		end
 	end
 	str = join(strs, "⊗")
-	print(io, "[$str]")
+	print(io, str)
 end
 
 length(p::Pulse) = p.length

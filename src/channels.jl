@@ -56,7 +56,7 @@ type QuadratureAWGChannel
 end
 
 ==(a::Channel, b::Channel) = a.label == b.label
-hash(c::Channel) = hash(c.label)
+hash(c::Channel, h::UInt) = hash(c.label, h)
 
 immutable Measurement <: Channel
 	label::String
