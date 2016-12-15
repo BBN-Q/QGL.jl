@@ -200,7 +200,7 @@ function create_instrs(seqs, wf_lib, chans, chan_freq)
 						next_entry = entry.pulses[chan][idx[ct]]
 						if typeof(next_entry) == QGL.Pulse
 							wf = wf_lib[next_entry]
-							if typeof(chan) == QGL.Qubit
+							if typeof(chan) == QGL.Qubit || typeof(chan) == QGL.Edge
 								# TODO: inject frequency update if necessary
 								push!(instrs, modulation_instr(MODULATE, 0x1, wf.count))
 							end
