@@ -56,9 +56,9 @@ Uθ(q::Union{Qubit, Edge}, angle::Float64, phase::Float64) = Pulse("Uθ", q, q.s
 Uθ(q::Union{Qubit, Edge}, angle::Float64, phase::Float64, shape::String) = Pulse("Uθ", q, q.shape_params["length"], angle, phase, 0, pyQGL.PulseShapes[Symbol(shape)])
 Uθ(q::Union{Qubit, Edge}, length::Float64, angle::Float64, phase::Float64, shape::String) = Pulse("Uθ", q, length, angle, phase, 0, pyQGL.PulseShapes[Symbol(shape)])
 
-Z(q::Qubit, angle=0.5) = ZPulse("Z", q, angle)
-Z90(q::Qubit) = ZPulse("Z90", q, 0.25)
-Z90m(q::Qubit) = ZPulse("Z90m", q, 0.75)
+Z(q::Union{Qubit, Edge}, angle=0.5) = ZPulse("Z", q, angle)
+Z90(q::Union{Qubit, Edge}) = ZPulse("Z90", q, 0.25)
+Z90m(q::Union{Qubit, Edge}) = ZPulse("Z90m", q, 0.75)
 length(z::ZPulse) = 0
 
 show(io::IO, z::ZPulse) = print(io, "$(z.label)($(z.channel.label), $(z.angle))")
@@ -141,6 +141,7 @@ promote_rule(::Type{ZPulse}, ::Type{PulseBlock}) = PulseBlock
 ⊗(x::ZPulse, y::ZPulse) = ⊗(PulseBlock(x), PulseBlock(y))
 ⊗(x::ZPulse, y::PulseBlock) = ⊗(PulseBlock(x), y)
 ⊗(x::PulseBlock, y::ZPulse) = ⊗(x, PulseBlock(y))
+⊗(x::Pulse, y::ZPulse) = ⊗(PulseBlock(x), PulseBlock(y))
 ⊗(x::PulseBlock, y::PulseBlock) = PulseBlock(merge(x.pulses, y.pulses))
 
 channels(pb::PulseBlock) = keys(pb.pulses)
