@@ -106,9 +106,15 @@ Serialize a pulse sequence to a HDF5 file
 """
 function write_sequence_file(filename, seqs, pulses, channel_map)
 
+	# check whether there is any analog data
+	markers_only = !(:ch12 in keys(channel_map))
 	# translate pulses to waveform and/or markers
 	instr_lib = Dict{QGL.Pulse, Union{Waveform,Marker}}()
-	wfs = create_wf_instrs!(instr_lib, pulses[channel_map[:ch12]])
+	if markers_only
+		wfs = Vector{Vector{Complex{Int16}}}()
+	else
+		wfs = create_wf_instrs!(instr_lib, pulses[channel_map[:ch12]])
+	end
 	for (ct, marker_chan) = enumerate([:m1, :m2, :m3, :m4])
 		if marker_chan in keys(channel_map)
 			create_marker_instrs!(instr_lib, pulses[channel_map[marker_chan]], ct)
@@ -116,7 +122,8 @@ function write_sequence_file(filename, seqs, pulses, channel_map)
 	end
 
 	# create instructions
-	instrs = create_instrs(seqs, instr_lib, collect(values(channel_map)),channel_map[:ch12].frequency)
+	chan_freq = markers_only ? 0 : channel_map[:ch12].frequency
+	instrs = create_instrs(seqs, instr_lib, collect(values(channel_map)), chan_freq)
 
 	write_to_file(filename, instrs, wfs)
 end
@@ -251,12 +258,15 @@ function convert(::Type{APS2Instruction}, cf::QGL.ControlFlow)
 end
 
 function write_to_file(filename, instrs, wfs)
-	#flatten waveforms to vector
-	wf_vec = Vector{Complex{Int16}}(sum(length(wf) for wf in wfs))
-	idx = 1
-	for wf in wfs
-		wf_vec[idx:idx+length(wf)-1] = wf
-		idx += length(wf)
+	# flatten waveforms to vector
+	wf_vec = Vector{Complex{Int16}}()
+	if !isempty(wfs)
+		resize!(wf_vec, sum(length(wf) for wf in wfs))
+		idx = 1
+		for wf in wfs
+			wf_vec[idx:idx+length(wf)-1] = wf
+			idx += length(wf)
+		end
 	end
 
 	h5open(filename, "w") do f
