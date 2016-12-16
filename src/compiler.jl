@@ -34,6 +34,9 @@ function compile_to_hardware{T}(seq::Vector{T}, base_filename; suffix="")
 	# add slave trigger to every WAIT
 	add_slave_trigger!(seq, Marker("slaveTrig"))
 
+	# propagate frame changes to edges
+	propagate_frame_change!(seq)
+
 	# TODO: add gating/blanking pulses
 	#add_gate_pulses!(seq)
 
@@ -83,6 +86,45 @@ function add_slave_trigger!(seq, slave_trig_chan)
 	end
 end
 
+function propagate_frame_change!(seq)
+	#get a dictionary of target qubits and their edges
+	qs = qubits(seq)
+	edges = Dict(q => Set{Edge}() for q in qs)
+	for q in qs
+		chan_py = QGL.pyQGL.QubitFactory(q.label)
+		for predecessor in QGL.pyQGL.ChannelLibrary[:channelLib][:connectivityG][:predecessors](chan_py)
+			edge = Edge(Qubit(predecessor[:label]), q)
+			push!(edges[q], edge)
+		end
+	end
+	# if there are no edges then we're finished here
+	all(isempty(s) for s in values(edges)) && return
+
+	# keep a cache of propagated Z pulses
+	Z_edges = Dict{Tuple{Qubit, Float64}, PulseBlock}()
+
+	#for any ZPulse at the target qubit, add ZPulse on its edges
+	for (ct,entry) in enumerate(seq)
+		if typeof(entry) == PulseBlock
+			for (ch, e) in entry.pulses
+				for pulse in e
+					if typeof(pulse) == ZPulse && typeof(ch) == Qubit && ~isempty(edges[ch])
+						if !((ch, pulse.angle) in keys(Z_edges))
+							Z_edges[(ch, pulse.angle)] = reduce(⊗, [Z(x, pulse.angle) for x in edges[ch]])
+						end
+						insert!(seq, ct+1, Z_edges[(ch, pulse.angle)])
+					end
+				end
+			end
+		elseif typeof(entry) == ZPulse && typeof(entry.channel) == Qubit && ~isempty(edges[entry.channel])
+			if !((entry.channel, entry.angle) in keys(Z_edges))
+				Z_edges[(entry.channel, entry.angle)] = reduce(⊗, [Z(x, entry.angle) for x in edges[entry.channel]])
+			end
+			insert!(seq, ct+1, Z_edges[(entry.channel, entry.angle)])
+		end
+	end
+end
+
 function compile(seq)
 	# find what channels we're dealing with here
 	chans = channels(seq)
@@ -126,6 +168,16 @@ function channels(seq)
 			for chan in keys(e.pulses)
 				push!(chans, chan)
 			end
+		end
+	end
+	return chans
+end
+
+function qubits(seq)
+	chans = channels(seq)
+	for chan in chans
+		if typeof(chan) != Qubit
+			delete!(chans, chan)
 		end
 	end
 	return chans
@@ -198,7 +250,7 @@ function push!{T<:Union{Pulse, ZPulse}}(pb_cur::PulseBlock, p::T, pulses, paddin
 end
 
 function apply_padding!(chan, pb, paddings, pulses)
-	if paddings[chan] > 0.0
+	if paddings[chan] > 1e-16 #arbitrarily eps for Float64 relative to 1.0
 		pad_pulse = Id(chan, paddings[chan])
 		push!(pb.pulses[chan], pad_pulse)
 		push!(pulses[chan], pad_pulse)

@@ -1,6 +1,6 @@
 import Base: convert, promote_rule, length, ==
 
-export X90, X, X90m, Y90, Y, Y90m, Z90, Z, Z90m, Id, ⊗, MEAS, AC, DiAC
+export X90, X, X90m, Y90, Y, Y90m, U90, Uθ, Z90, Z, Z90m, Id, ⊗, MEAS, AC, DiAC, ZX90
 
 immutable Pulse
 	label::String
@@ -9,6 +9,7 @@ immutable Pulse
 	amp::Float64
 	phase::Float64
 	frequency::Float64
+	shapeFun::PyObject
 	hash::UInt
 end
 
@@ -18,12 +19,13 @@ _hash(p::Pulse) =
 	hash(p.length,
 	hash(p.amp,
 	hash(p.phase,
-	hash(p.frequency ))))))
+	hash(p.frequency,
+	hash(p.shapeFun)))))))
 
-function Pulse(label::String, channel::Channel, length::Real=0.0, amp::Real=0.0, phase::Real=0.0, frequency::Real=0.0)
+function Pulse(label::String, channel::Channel, length::Real=0.0, amp::Real=0.0, phase::Real=0.0, frequency::Real=0.0, shapeFun::PyObject=channel.shape_params["shapeFun"])
 	# precompute pulse has we'll call it for each pulse we compile
-	pulse_hash = hash(label, hash(channel, hash(length, hash(amp, hash(phase, hash(frequency ))))))
-	Pulse(label, channel, Float64(length), Float64(amp), Float64(phase), Float64(frequency), pulse_hash)
+	pulse_hash = hash(label, hash(channel, hash(length, hash(amp, hash(phase, hash(frequency, hash(shapeFun)))))))
+	Pulse(label, channel, Float64(length), Float64(amp), Float64(phase), Float64(frequency), shapeFun, pulse_hash)
 end
 
 ==(a::Pulse, b::Pulse) = a.hash == b.hash
@@ -38,7 +40,6 @@ immutable ZPulse
 end
 
 
-
 for (func, label, amp, phase) in [
 	(:X90,  "X90",  "pi2Amp", 0),
 	(:X,    "X",    "piAmp",  0),
@@ -50,9 +51,14 @@ for (func, label, amp, phase) in [
 	@eval $func(q) = Pulse($label, q, q.shape_params["length"], q.shape_params[$amp], $phase, 0)
 end
 
-Z(q::Qubit, angle=0.5) = ZPulse("Z", q, angle)
-Z90(q::Qubit) = ZPulse("Z90", q, 0.25)
-Z90m(q::Qubit) = ZPulse("Z90m", q, 0.75)
+U90(q::Qubit, phase::Float64 = 0.0) = Pulse("U90", q, q.shape_params["length"], 0.25, phase, 0)
+Uθ(q::Union{Qubit, Edge}, angle::Float64, phase::Float64) = Pulse("Uθ", q, q.shape_params["length"], angle, phase, 0)
+Uθ(q::Union{Qubit, Edge}, angle::Float64, phase::Float64, shape::String) = Pulse("Uθ", q, q.shape_params["length"], angle, phase, 0, pyQGL.PulseShapes[Symbol(shape)])
+Uθ(q::Union{Qubit, Edge}, length::Float64, angle::Float64, phase::Float64, shape::String) = Pulse("Uθ", q, length, angle, phase, 0, pyQGL.PulseShapes[Symbol(shape)])
+
+Z(q::Union{Qubit, Edge}, angle=0.5) = ZPulse("Z", q, angle)
+Z90(q::Union{Qubit, Edge}) = ZPulse("Z90", q, 0.25)
+Z90m(q::Union{Qubit, Edge}) = ZPulse("Z90m", q, 0.75)
 length(z::ZPulse) = 0
 
 show(io::IO, z::ZPulse) = print(io, "$(z.label)($(z.channel.label), $(z.angle))")
@@ -135,6 +141,7 @@ promote_rule(::Type{ZPulse}, ::Type{PulseBlock}) = PulseBlock
 ⊗(x::ZPulse, y::ZPulse) = ⊗(PulseBlock(x), PulseBlock(y))
 ⊗(x::ZPulse, y::PulseBlock) = ⊗(PulseBlock(x), y)
 ⊗(x::PulseBlock, y::ZPulse) = ⊗(x, PulseBlock(y))
+⊗(x::Pulse, y::ZPulse) = ⊗(PulseBlock(x), PulseBlock(y))
 ⊗(x::PulseBlock, y::PulseBlock) = PulseBlock(merge(x.pulses, y.pulses))
 
 channels(pb::PulseBlock) = keys(pb.pulses)
@@ -159,6 +166,7 @@ function waveform(p::Pulse, sampling_rate)
 	shape_params = Dict(Symbol(k) => v for (k,v) in p.channel.shape_params)
 	shape_params[:samplingRate] = sampling_rate
 	shape_params[:length] = p.length
+	shape_params[:shapeFun] = p.shapeFun
 	return shape_params[:shapeFun](;shape_params...)
 end
 
@@ -172,4 +180,15 @@ function MEAS(q::Qubit)
 		pb = pb ⊗ trig_pulse
 	end
 	return pb
+end
+
+function flat_top_gaussian(chan)
+	return [Uθ(chan, chan.shape_params["riseFall"], chan.shape_params["amp"], chan.shape_params["phase"], "gaussOn"),
+	Uθ(chan, chan.shape_params["length"], chan.shape_params["amp"], chan.shape_params["phase"], "constant"),
+	Uθ(chan, chan.shape_params["riseFall"], chan.shape_params["amp"], chan.shape_params["phase"], "gaussOff")]
+end
+
+function ZX90(qc::Qubit, qt::Qubit)
+	CRchan = Edge(qc,qt)
+  return PulseBlock(Dict(CRchan => vcat(flat_top_gaussian(CRchan), [Id(CRchan, qc.shape_params["length"])], flat_top_gaussian(CRchan), [Id(CRchan, qc.shape_params["length"])]), qc => [Id(qc, CRchan.shape_params["length"]+2*CRchan.shape_params["riseFall"]), X(qc), Id(qc, CRchan.shape_params["length"]+2*CRchan.shape_params["riseFall"]), X(qc)]))
 end

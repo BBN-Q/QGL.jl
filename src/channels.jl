@@ -3,7 +3,7 @@ using PyCall
 
 import Base: show, ==, hash
 
-export Qubit, Marker
+export Qubit, Edge, Marker
 
 abstract Channel
 show(io::IO, c::Channel) = print(io, c.label)
@@ -13,7 +13,17 @@ immutable Qubit <: Channel
 	awg_channel::String
 	gate_channel::String
 	shape_params::Dict{Any,Any}
-	frequency::Real
+	frequency::Float64
+end
+
+immutable Edge <: Channel
+	label::String
+	awg_channel::String
+	gate_channel::String
+	shape_params::Dict{Any,Any}
+	frequency::Float64
+	source::Qubit
+	target::Qubit
 end
 
 function Qubit(label)
@@ -67,4 +77,14 @@ function measurement_channel(q::Qubit)
 	pulse_params = m[:pulseParams]
 	pulse_params["autodyne_freq"]= m[:autodyneFreq]
 	Measurement(m_label, phys_chan, gate_chan, trig_chan, pulse_params, m[:frequency])
+end
+
+function Edge(source::Qubit, target::Qubit)
+	# look up edge channel connecting qc to qt in connectivity graph
+	py_source = pyQGL.QubitFactory(source.label)
+	py_target = pyQGL.QubitFactory(target.label)
+	e_chan = pyQGL.EdgeFactory(py_source, py_target)
+	phys_chan = typeof(e_chan[:physChan]) == Void ? "" : e_chan[:physChan][:label]
+	gate_chan = typeof(e_chan[:gateChan]) == Void ? "" : e_chan[:gateChan][:label]
+	Edge(e_chan[:label], phys_chan, gate_chan, e_chan[:pulseParams], e_chan[:frequency], source, target)
 end
