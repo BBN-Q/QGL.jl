@@ -41,3 +41,7 @@ BenchmarkTools.Trial:
 ## License
 
 Apache License v2.0
+
+## Funding
+
+This work was funded in part by the Army Research Office under contract W911NF-14-C-0048.
