@@ -250,7 +250,7 @@ function push!{T<:Union{Pulse, ZPulse}}(pb_cur::PulseBlock, p::T, pulses, paddin
 end
 
 function apply_padding!(chan, pb, paddings, pulses)
-	if paddings[chan] > 0.0
+	if paddings[chan] > 1e-16 #arbitrarily eps for Float64 relative to 1.0
 		pad_pulse = Id(chan, paddings[chan])
 		push!(pb.pulses[chan], pad_pulse)
 		push!(pulses[chan], pad_pulse)
