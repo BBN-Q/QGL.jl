@@ -97,18 +97,30 @@ function propagate_frame_change!(seq)
 			push!(edges[q], edge)
 		end
 	end
+	# if there are no edges then we're finished here
+	all(isempty(s) for s in values(edges)) && return
+
+	# keep a cache of propagated Z pulses
+	Z_edges = Dict{Tuple{Qubit, Float64}, PulseBlock}()
+
 	#for any ZPulse at the target qubit, add ZPulse on its edges
 	for (ct,entry) in enumerate(seq)
 		if typeof(entry) == PulseBlock
 			for (ch, e) in entry.pulses
 				for pulse in e
 					if typeof(pulse) == ZPulse && typeof(ch) == Qubit && ~isempty(edges[ch])
-						insert!(seq, ct+1, reduce(⊗, [Z(x, pulse.angle) for x in edges[ch]]))
+						if !((ch, pulse.angle) in keys(Z_edges))
+							Z_edges[(ch, pulse.angle)] = reduce(⊗, [Z(x, pulse.angle) for x in edges[ch]])
+						end
+						insert!(seq, ct+1, Z_edges[(ch, pulse.angle)])
 					end
 				end
 			end
 		elseif typeof(entry) == ZPulse && typeof(entry.channel) == Qubit && ~isempty(edges[entry.channel])
-			insert!(seq, ct+1, reduce(⊗, [Z(x, entry.angle) for x in edges[entry.channel]]))
+			if !((entry.channel, entry.angle) in keys(Z_edges))
+				Z_edges[(entry.channel, entry.angle)] = reduce(⊗, [Z(x, entry.angle) for x in edges[entry.channel]])
+			end
+			insert!(seq, ct+1, Z_edges[(entry.channel, entry.angle)])
 		end
 	end
 end
