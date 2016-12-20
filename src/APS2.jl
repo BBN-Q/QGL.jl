@@ -110,20 +110,25 @@ function write_sequence_file(filename, seqs, pulses, channel_map)
 	markers_only = !(:ch12 in keys(channel_map))
 	# translate pulses to waveform and/or markers
 	instr_lib = Dict{QGL.Pulse, Union{Waveform,Marker}}()
+	chan_freqs = Dict{QGL.Channel, Float64}()
 	if markers_only
 		wfs = Vector{Vector{Complex{Int16}}}()
 	else
-		wfs = create_wf_instrs!(instr_lib, pulses[channel_map[:ch12]])
+		chan_pulses = Set{QGL.Pulse}()
+		for ch in channel_map[:ch12]
+			union!(chan_pulses, pulses[ch])
+			chan_freqs[ch] = ch.frequency
+			wfs = create_wf_instrs!(instr_lib, chan_pulses)
+		end
 	end
 	for (ct, marker_chan) = enumerate([:m1, :m2, :m3, :m4])
 		if marker_chan in keys(channel_map)
-			create_marker_instrs!(instr_lib, pulses[channel_map[marker_chan]], ct)
+			create_marker_instrs!(instr_lib, pulses[channel_map[marker_chan][1]], ct)
 		end
 	end
 
 	# create instructions
-	chan_freq = markers_only ? 0 : channel_map[:ch12].frequency
-	instrs = create_instrs(seqs, instr_lib, collect(values(channel_map)), chan_freq)
+	instrs = create_instrs(seqs, instr_lib, collect(values(channel_map)), chan_freqs)
 
 	write_to_file(filename, instrs, wfs)
 end
@@ -168,8 +173,12 @@ function create_marker_instrs!(instr_lib, pulses, marker_chan)
 	end
 end
 
+function get_chan_freq_instr(chan_freq, nco_select)
+	return modulation_instr(SET_FREQ, nco_select, round(Int32, -chan_freq / FPGA_CLOCK * 2^28 ))
+end
 
 function create_instrs(seqs, wf_lib, chans, chan_freq)
+function create_instrs(seqs, wf_lib, chans, chan_freqs)
 	instrs = APS2Instruction[]
 
 	# sort out whether we have any modulation commands
@@ -178,7 +187,6 @@ function create_instrs(seqs, wf_lib, chans, chan_freq)
 	# frame_changes = any(typeof(e) == QGL.ZPulse for e in seqs)
 
 	reset_phase_instr = modulation_instr(RESET_PHASE, 0x7)
-	chan_freq_instr = modulation_instr(SET_FREQ, 0x1, round(Int32, -chan_freq / FPGA_CLOCK * 2^28 ))
 	sync_instr = convert(APS2Instruction, QGL.sync())
 
 	num_chans = length(chans)
@@ -186,6 +194,7 @@ function create_instrs(seqs, wf_lib, chans, chan_freq)
 	idx = ones(Int, num_chans)
 	all_done = zeros(Bool, num_chans)
 	num_entries = zeros(Int, num_chans)
+	nco_select = Dict(freq => ct for (ct, freq) in enumerate(values(chan_freqs)))
 
 	for entry in seqs
 		if typeof(entry) == QGL.PulseBlock
@@ -234,7 +243,9 @@ function create_instrs(seqs, wf_lib, chans, chan_freq)
 				push!(instrs, sync_instr)
 				# heuristic to reset modulation engine phase and frame before wait for trigger
 				push!(instrs, reset_phase_instr)
-				push!(instrs, chan_freq_instr)
+				for freq in values(chan_freqs)
+					push!(instrs, get_chan_freq_instr(freq, nco_select[freq]))
+				end
 			end
 			push!(instrs, convert(APS2Instruction, entry))
 		end
