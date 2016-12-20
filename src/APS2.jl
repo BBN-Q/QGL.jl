@@ -178,6 +178,9 @@ function get_chan_freq_instr(chan_freq, nco_select)
 end
 
 function find_next_analog_entry!(entry, chan, wf_lib, analog_timestamps, id_ch)
+		if any([id_ch[ct] > length(entry.pulses[chan[ct]]) for ct in length(chan)])
+			return
+		end
     sim_chs_id = find(x-> x == minimum(analog_timestamps), analog_timestamps)
     if length(sim_chs_id) == 1
             chan_select = sim_chs_id[1]
@@ -197,7 +200,7 @@ function find_next_analog_entry!(entry, chan, wf_lib, analog_timestamps, id_ch)
         analog_timestamps[ct] += wf_lib[entry.pulses[chan[ct]][id_ch[ct]]].count + 1
         id_ch[ct]+=1
     end
-    return chan[chan_select], next_entry
+    return next_entry
 end
 
 function create_instrs(seqs, wf_lib, chans, chan_freqs)
@@ -243,11 +246,15 @@ function create_instrs(seqs, wf_lib, chans, chan_freqs)
 						if length(chan)>1 # multiple logical channels per analog channel
 							next_entry = find_next_analog_entry!(entry, chan, wf_lib, analog_timestamps, analog_idx)
 						else
-							next_entry = entry.pulses[chan][idx[ct]]
+							next_entry = entry.pulses[chan[1]][idx[ct]]
+						end
+						if !next_entry
+							all_done[ct] = true
+							break
 						end
 						if typeof(next_entry) == QGL.Pulse
 							wf = wf_lib[next_entry]
-							if typeof(chan) == QGL.Qubit || typeof(chan) == QGL.Edge
+							if typeof(next_entry.channel) == QGL.Qubit || typeof(next_entry.channel) == QGL.Edge
 								# TODO: inject frequency update if necessary
 								push!(instrs, modulation_instr(MODULATE, nco_select[next_entry.channel], wf.count))
 							end
