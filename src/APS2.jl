@@ -177,7 +177,29 @@ function get_chan_freq_instr(chan_freq, nco_select)
 	return modulation_instr(SET_FREQ, nco_select, round(Int32, -chan_freq / FPGA_CLOCK * 2^28 ))
 end
 
-function create_instrs(seqs, wf_lib, chans, chan_freq)
+function find_next_analog_entry!(entry, chan, wf_lib, analog_timestamps, id_ch)
+    sim_chs_id = find(x-> x == minimum(analog_timestamps), analog_timestamps)
+    if length(sim_chs_id) == 1
+            chan_select = sim_chs_id[1]
+    else
+        pulses = [entry.pulses[chan[ct]][id_ch[ct]] for ct in sim_chs_id] #select pulses on simultaneous channels
+        nonid_ids = find([!wf_lib[pulse].isTA for pulse in pulses]) #find non-Id pulses
+        if length(nonid_ids) > 1
+            error("Only a single non-Id channel allowed")
+        elseif length(nonid_ids) == 1
+            chan_select = sim_chs_id[nonid_ids[1]]
+        else
+            chan_select = sim_chs_id[indmin([pulse.length for pulse in pulses])]
+        end
+    end
+        next_entry = entry.pulses[chan[chan_select]][id_ch[chan_select]]
+    for ct in sim_chs_id
+        analog_timestamps[ct] += wf_lib[entry.pulses[chan[ct]][id_ch[ct]]].count + 1
+        id_ch[ct]+=1
+    end
+    return chan[chan_select], next_entry
+end
+
 function create_instrs(seqs, wf_lib, chans, chan_freqs)
 	instrs = APS2Instruction[]
 
@@ -194,7 +216,9 @@ function create_instrs(seqs, wf_lib, chans, chan_freqs)
 	idx = ones(Int, num_chans)
 	all_done = zeros(Bool, num_chans)
 	num_entries = zeros(Int, num_chans)
-	nco_select = Dict(freq => ct for (ct, freq) in enumerate(values(chan_freqs)))
+	if !isempty(chan_freqs)
+		nco_select = Dict{QGL.Channel, UInt8}(chan => ct for (ct, chan) in enumerate(keys(chan_freqs)))
+	end
 
 	for entry in seqs
 		if typeof(entry) == QGL.PulseBlock
@@ -202,10 +226,12 @@ function create_instrs(seqs, wf_lib, chans, chan_freqs)
 			fill!(time_stamp, 0)
 			fill!(idx, 1)
 			for (ct, chan) in enumerate(chans)
-				num_entries[ct] = length(entry.pulses[chan])
+				num_entries[ct] = minimum([length(entry.pulses[ch]) for ch in chan])
 				all_done[ct] = num_entries[ct] == 0
 			end
 
+			analog_timestamps = zeros(Int, length(chan_freqs))
+			analog_idx = ones(Int, length(chan_freqs))
 			# serialize pulses from the PulseBlock
 			# round-robin through the channels until all are exhausted
 			while !all(all_done)
@@ -213,18 +239,23 @@ function create_instrs(seqs, wf_lib, chans, chan_freqs)
 
 				for (ct, chan) in enumerate(chans)
 					if (!all_done[ct]) && (time_stamp[ct] <= next_instr_time)
-						next_entry = entry.pulses[chan][idx[ct]]
+
+						if length(chan)>1 # multiple logical channels per analog channel
+							next_entry = find_next_analog_entry!(entry, chan, wf_lib, analog_timestamps, analog_idx)
+						else
+							next_entry = entry.pulses[chan][idx[ct]]
+						end
 						if typeof(next_entry) == QGL.Pulse
 							wf = wf_lib[next_entry]
 							if typeof(chan) == QGL.Qubit || typeof(chan) == QGL.Edge
 								# TODO: inject frequency update if necessary
-								push!(instrs, modulation_instr(MODULATE, 0x1, wf.count))
+								push!(instrs, modulation_instr(MODULATE, nco_select[next_entry.channel], wf.count))
 							end
 							push!(instrs, wf.instruction)
 							time_stamp[ct] += wf.count+1
 						elseif typeof(next_entry) == QGL.ZPulse
 							# round phase to 28 bit integer
-							push!(instrs, modulation_instr(UPDATE_FRAME, 0x1, round(Int32, mod(-next_entry.angle, 1) * 2^28 )) )
+							push!(instrs, modulation_instr(UPDATE_FRAME, nco_select[next_entry.channel], round(Int32, mod(-next_entry.angle, 1) * 2^28 )) )
 						else
 							error("Untranslated pulse block entry")
 						end
@@ -243,8 +274,8 @@ function create_instrs(seqs, wf_lib, chans, chan_freqs)
 				push!(instrs, sync_instr)
 				# heuristic to reset modulation engine phase and frame before wait for trigger
 				push!(instrs, reset_phase_instr)
-				for freq in values(chan_freqs)
-					push!(instrs, get_chan_freq_instr(freq, nco_select[freq]))
+				for ch in keys(chan_freqs)
+					push!(instrs, get_chan_freq_instr(chan_freqs[ch], nco_select[ch]))
 				end
 			end
 			push!(instrs, convert(APS2Instruction, entry))
