@@ -245,12 +245,14 @@ function create_instrs(seqs, wf_lib, chans, chan_freqs)
 
 						if length(chan)>1 # multiple logical channels per analog channel
 							next_entry = find_next_analog_entry!(entry, chan, wf_lib, analog_timestamps, analog_idx)
+							if typeof(next_entry) == Void
+								all_done[ct] = true
+								break
+							end
 						else
 							next_entry = entry.pulses[chan[1]][idx[ct]]
-						end
-						if !next_entry
-							all_done[ct] = true
-							break
+							idx[ct] += 1
+							all_done[ct] = idx[ct] > num_entries[ct]
 						end
 						if typeof(next_entry) == QGL.Pulse
 							wf = wf_lib[next_entry]
@@ -267,8 +269,7 @@ function create_instrs(seqs, wf_lib, chans, chan_freqs)
 							error("Untranslated pulse block entry")
 						end
 
-						idx[ct] += 1
-						all_done[ct] = idx[ct] > num_entries[ct]
+
 					end
 
 				end
