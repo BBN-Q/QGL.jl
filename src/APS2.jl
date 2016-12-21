@@ -181,26 +181,26 @@ function find_next_analog_entry!(entry, chan, wf_lib, analog_timestamps, id_ch)
 		if any([id_ch[ct] > length(entry.pulses[chan[ct]]) for ct in length(chan)])
 			return
 		end
-    sim_chs_id = find(x-> x == minimum(analog_timestamps), analog_timestamps)
-    if length(sim_chs_id) == 1
-            chan_select = sim_chs_id[1]
-    else
-        pulses = [entry.pulses[chan[ct]][id_ch[ct]] for ct in sim_chs_id] #select pulses on simultaneous channels
-        nonid_ids = find([!wf_lib[pulse].isTA for pulse in pulses]) #find non-Id pulses
-        if length(nonid_ids) > 1
-            error("Only a single non-Id channel allowed")
-        elseif length(nonid_ids) == 1
-            chan_select = sim_chs_id[nonid_ids[1]]
-        else
-            chan_select = sim_chs_id[indmin([pulse.length for pulse in pulses])]
-        end
-    end
-        next_entry = entry.pulses[chan[chan_select]][id_ch[chan_select]]
-    for ct in sim_chs_id
-        analog_timestamps[ct] += wf_lib[entry.pulses[chan[ct]][id_ch[ct]]].count + 1
-        id_ch[ct]+=1
-    end
-    return next_entry
+		sim_chs_id = find(x-> x == minimum(analog_timestamps), analog_timestamps)
+		if length(sim_chs_id) == 1
+						chan_select = sim_chs_id[1]
+		else
+				pulses = [entry.pulses[chan[ct]][id_ch[ct]] for ct in sim_chs_id] #select pulses on simultaneous channels
+				nonid_ids = find([!wf_lib[pulse].isTA for pulse in pulses]) #find non-Id pulses
+				if length(nonid_ids) > 1
+						error("Only a single non-Id channel allowed")
+				elseif length(nonid_ids) == 1
+						chan_select = sim_chs_id[nonid_ids[1]]
+				else
+						chan_select = sim_chs_id[indmin([pulse.length for pulse in pulses])]
+				end
+		end
+				next_entry = entry.pulses[chan[chan_select]][id_ch[chan_select]]
+		for ct in sim_chs_id
+				analog_timestamps[ct] += wf_lib[entry.pulses[chan[ct]][id_ch[ct]]].count + 1
+				id_ch[ct]+=1
+		end
+		return next_entry
 end
 
 function create_instrs(seqs, wf_lib, chans, chan_freqs)
