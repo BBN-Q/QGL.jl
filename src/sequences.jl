@@ -11,7 +11,7 @@ function create_tomo_blocks(qubits::Tuple{Vararg{Qubit}}, num_pulses::Int64 = 4)
         error("Only able to handle numPulses=4 or 6")
     end
     pulse_mat = product(fill(1:num_pulses,length(qubits))...)
-    return [reduce(⊗, tomo_set[pulse_ind[ct]](qubits[ct]) for ct in 1:length(pulse_ind)) for pulse_ind in pulse_mat]
+    return [reduce(⊗, tomo_set[pulse_ind[ct]](qubits[end-ct+1]) for ct in 1:length(pulse_ind)) for pulse_ind in pulse_mat]
 end
 
 function state_tomo{T<:QGL.SequenceEntry}(seq::Vector{T}, qubits::Tuple{Vararg{Qubit}}, num_pulses::Int64 = 4)
@@ -23,5 +23,5 @@ function create_cal_seqs(qubits::Tuple{Vararg{Qubit}}, num_repeats::Int64 = 2)
     cal_set = [Id, X]
     meas_block = reduce(⊗, [MEAS(q) for q in qubits])
     pulse_mat = product(fill(1:length(qubits),length(qubits))...)
-    cal_seqs = [[reduce(⊗, cal_set[pulse_ind[ct]](qubits[ct]) for ct in 1:length(pulse_ind)), meas_block] for pulse_ind in pulse_mat for _ in 1:num_repeats]
+    cal_seqs = [[reduce(⊗, cal_set[pulse_ind[ct]](qubits[end-ct+1]) for ct in 1:length(pulse_ind)), meas_block] for pulse_ind in pulse_mat for _ in 1:num_repeats]
 end
