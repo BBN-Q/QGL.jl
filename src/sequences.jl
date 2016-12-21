@@ -21,6 +21,7 @@ end
 
 function create_cal_seqs(qubits::Tuple{Vararg{Qubit}}, num_repeats::Int64 = 2)
     cal_set = [Id, X]
+    meas_block = reduce(⊗, [MEAS(q) for q in qubits])
     pulse_mat = product(fill(1:length(qubits),length(qubits))...)
-    cal_seqs = [reduce(⊗, cal_set[pulse_ind[ct]](qubits[ct]) for ct in 1:length(pulse_ind)) for pulse_ind in pulse_mat for _ in 1:num_repeats]
+    cal_seqs = [[reduce(⊗, cal_set[pulse_ind[ct]](qubits[ct]) for ct in 1:length(pulse_ind)), meas_block] for pulse_ind in pulse_mat for _ in 1:num_repeats]
 end
