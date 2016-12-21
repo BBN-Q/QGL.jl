@@ -1,6 +1,6 @@
 using Iterators
 
-export state_tomo
+export state_tomo, create_cal_seqs
 
 function create_tomo_blocks(qubits::Tuple{Vararg{Qubit}}, num_pulses::Int64 = 4)
     if num_pulses == 4
