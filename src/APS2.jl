@@ -111,14 +111,11 @@ function write_sequence_file(filename, seqs, pulses, channel_map)
 	# translate pulses to waveform and/or markers
 	instr_lib = Dict{QGL.Pulse, Union{Waveform,Marker}}()
 	chan_freqs = Dict{QGL.Channel, Float64}()
-	if markers_only
-		wfs = Vector{Vector{Complex{Int16}}}()
-	else
-		chan_pulses = Set{QGL.Pulse}()
+	wfs = Vector{Vector{Complex{Int16}}}()
+	if !markers_only
 		for ch in channel_map[:ch12]
-			union!(chan_pulses, pulses[ch])
 			chan_freqs[ch] = ch.frequency
-			wfs = create_wf_instrs!(instr_lib, chan_pulses)
+			create_wf_instrs!(instr_lib, wfs, pulses[ch])
 		end
 	end
 	for (ct, marker_chan) = enumerate([:m1, :m2, :m3, :m4])
@@ -136,9 +133,8 @@ end
 const USE_PHASE_OFFSET_INSTRUCTION = false
 const USE_PULSE_FREQUENCY_INSTRUCTION = false
 
-function create_wf_instrs!(instr_lib, pulses)
-	# TODO: better handle Id so we don't generate useless long wfs and have repeated 0 offsets
-	wfs = Vector{Vector{Complex{Int16}}}()
+function create_wf_instrs!(instr_lib, wfs, pulses)
+	# TODO: better handle Id so we don't generate useless long wfs and have repeated TAZ offsets
 	idx = 0
 	for p in pulses
 		wf = p.amp * QGL.waveform(p, DAC_CLOCK)
