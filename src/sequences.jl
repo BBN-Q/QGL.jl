@@ -9,10 +9,9 @@ function tomo_blocks(qubits::Tuple{Vararg{Qubit}}; num_pulses::Int=4)
         error("Only able to handle num_pulses=4 or 6")
     end
     # TODO: replace with lexproduct when https://github.com/JuliaLang/julia/pull/18825 is merged
-    pulse_idx = vec( map(x -> reverse(collect(x)), Base.product( fill(1:num_pulses,length(qubits))... )) )
-    return [ reduce(⊗, p(q) for (p,q) in zip(tomo_set[idx], qubits)) for idx in pulse_idx ]
+    pulse_combos = map(reverse, Base.product( fill(tomo_set, length(qubits))... ))
+    return [ reduce(⊗, p(q) for (p,q) in zip(pulses, qubits)) for pulses in vec(pulse_combos) ]
 end
-
 
 """
   state_tomo(sequence, qubits; num_pulses=4)
@@ -52,7 +51,7 @@ function cal_seqs(qubits::Tuple{Vararg{Qubit}}; num_repeats::Int=2)
     cal_set = [Id, X]
     meas_block = reduce(⊗, MEAS(q) for q in qubits)
     # TODO: replace with lexproduct when https://github.com/JuliaLang/julia/pull/18825 is merged
-    pulse_idx = vec( map(x -> reverse(collect(x)), Base.product( fill(1:length(cal_set),length(qubits))... )) )
-    pulse_idx = repeat(pulse_idx, inner=num_repeats)
-    return [ [reduce(⊗, p(q) for (p,q) in zip(cal_set[idx], qubits)), meas_block] for idx in pulse_idx ]
+    pulse_combos = map(reverse, Base.product( fill(cal_set, length(qubits))... ))
+    pulse_combos = repeat(vec(pulse_combos), inner=num_repeats)
+    return [ [reduce(⊗, p(q) for (p,q) in zip(pulses, qubits)), meas_block] for pulses in pulse_combos]
 end
