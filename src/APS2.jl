@@ -169,9 +169,6 @@ function create_marker_instrs!(instr_lib, pulses, marker_chan)
 	end
 end
 
-function get_chan_freq_instr(chan_freq, nco_select)
-	return modulation_instr(SET_FREQ, nco_select, round(Int32, -chan_freq / FPGA_CLOCK * 2^28 ))
-end
 
 function find_next_analog_entry!(entry, chan, wf_lib, analog_timestamps, id_ch)
 		if any([id_ch[ct] > length(entry.pulses[chan[ct]]) for ct in length(chan)])
@@ -202,21 +199,24 @@ end
 function create_instrs(seqs, wf_lib, chans, chan_freqs)
 	instrs = APS2Instruction[]
 
-	# sort out whether we have any modulation commands
-	# TODO: use multiple NCOs and determine if we need any modulation instructions
+	# TODO: sort out whether we need any modulation commands
 	# freqs = any(e.frequency != 0 for e in seqs if typeof(e) == QGL.Pulse)
 	# frame_changes = any(typeof(e) == QGL.ZPulse for e in seqs)
-
-	reset_phase_instr = modulation_instr(RESET_PHASE, 0x7)
-	sync_instr = convert(APS2Instruction, QGL.sync())
 
 	num_chans = length(chans)
 	time_stamp = zeros(Int, num_chans)
 	idx = ones(Int, num_chans)
 	all_done = zeros(Bool, num_chans)
 	num_entries = zeros(Int, num_chans)
+
+	reset_phase_instr = modulation_instr(RESET_PHASE, 0x7)
+	sync_instr = convert(APS2Instruction, QGL.sync())
+	chan_freq_instrs = APS2Instruction[]
 	if !isempty(chan_freqs)
 		nco_select = Dict{QGL.Channel, UInt8}(chan => ct for (ct, chan) in enumerate(keys(chan_freqs)))
+		for (chan, freq) in chan_freqs
+			push!(chan_freq_instrs, modulation_instr(SET_FREQ, nco_select[chan], round(Int32, -freq / FPGA_CLOCK * 2^28 )) )
+		end
 	end
 
 	for entry in seqs
@@ -271,15 +271,15 @@ function create_instrs(seqs, wf_lib, chans, chan_freqs)
 				end
 			end
 
-		else
+		else # if it's not a PulseBlock it must be a ControlFlow operation
 			# convert control flow to APS2Instruction
 			if entry.op == QGL.WAIT
 				# heuristic to inject SYNC before a wait
 				push!(instrs, sync_instr)
-				# heuristic to reset modulation engine phase and frame before wait for trigger
+				# heuristic to reset modulation engine phase set frequency before wait for trigger
 				push!(instrs, reset_phase_instr)
-				for ch in keys(chan_freqs)
-					push!(instrs, get_chan_freq_instr(chan_freqs[ch], nco_select[ch]))
+				for instr in chan_freq_instrs
+					push!(instrs, instr)
 				end
 			end
 			push!(instrs, convert(APS2Instruction, entry))
