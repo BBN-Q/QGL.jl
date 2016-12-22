@@ -9,19 +9,20 @@ function tomo_blocks(qubits::Tuple{Vararg{Qubit}}; num_pulses::Int=4)
         error("Only able to handle num_pulses=4 or 6")
     end
     # TODO: replace with lexproduct when https://github.com/JuliaLang/julia/pull/18825 is merged
-    pulse_mat = Base.product(fill(1:num_pulses,length(qubits))...)
-    return [reduce(⊗, tomo_set[pulse_ind[ct]](qubits[end-ct+1]) for ct in 1:length(pulse_ind)) for pulse_ind in pulse_mat]
+    pulse_idx = vec( map(x -> reverse(collect(x)), Base.product( fill(1:num_pulses,length(qubits))... )) )
+    return [ reduce(⊗, p(q) for (p,q) in zip(tomo_set[idx], qubits)) for idx in pulse_idx ]
 end
 
-function state_tomo{T<:QGL.SequenceEntry}(seq::Vector{T}, qubits::Tuple{Vararg{Qubit}}; num_pulses::Int = 4)
-    measBlock = reduce(⊗, [MEAS(q) for q in qubits])
-    return [[seq; tomoBlock; measBlock] for tomoBlock in tomo_blocks(qubits, num_pulses)]
+function state_tomo{T<:QGL.SequenceEntry}(seq::Vector{T}, qubits::Tuple{Vararg{Qubit}}; num_pulses::Int=4)
+    meas_block = reduce(⊗, MEAS(q) for q in qubits)
+    return [[seq; tomo_block; meas_block] for tomo_block in tomo_blocks(qubits; num_pulses=num_pulses)]
 end
 
 function cal_seqs(qubits::Tuple{Vararg{Qubit}}; num_repeats::Int=2)
     cal_set = [Id, X]
-    meas_block = reduce(⊗, [MEAS(q) for q in qubits])
+    meas_block = reduce(⊗, MEAS(q) for q in qubits)
     # TODO: replace with lexproduct when https://github.com/JuliaLang/julia/pull/18825 is merged
-    pulse_mat = Base.product(fill(1:length(qubits),length(qubits))...)
-    cal_seqs = [[reduce(⊗, cal_set[pulse_ind[ct]](qubits[end-ct+1]) for ct in 1:length(pulse_ind)), meas_block] for pulse_ind in pulse_mat for _ in 1:num_repeats]
+    pulse_idx = vec( map(x -> reverse(collect(x)), Base.product( fill(1:length(qubits),length(qubits))... )) )
+    pulse_idx = repeat(pulse_idx, inner=num_repeats)
+    cal_seqs = [ [reduce(⊗, p(q) for (p,q) in zip(cal_set[idx], qubits)), meas_block] for idx in pulse_idx ]
 end
