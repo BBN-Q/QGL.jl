@@ -139,7 +139,7 @@ function create_wf_instrs!(instr_lib, wfs, pulses)
 	for p in pulses
 		wf = p.amp * QGL.waveform(p, DAC_CLOCK)
 		if !USE_PHASE_OFFSET_INSTRUCTION
-			wf *= exp(1im * p.phase)
+			wf *= exp(1im * 2π * p.phase)
 		end
 		if !USE_PULSE_FREQUENCY_INSTRUCTION && p.frequency != 0
 			# bake the pulse frequency into the waveform
