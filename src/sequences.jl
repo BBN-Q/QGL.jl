@@ -22,7 +22,7 @@ function cal_seqs(qubits::Tuple{Vararg{Qubit}}; num_repeats::Int=2)
     cal_set = [Id, X]
     meas_block = reduce(⊗, MEAS(q) for q in qubits)
     # TODO: replace with lexproduct when https://github.com/JuliaLang/julia/pull/18825 is merged
-    pulse_idx = vec( map(x -> reverse(collect(x)), Base.product( fill(1:length(qubits),length(qubits))... )) )
+    pulse_idx = vec( map(x -> reverse(collect(x)), Base.product( fill(1:length(cal_set),length(qubits))... )) )
     pulse_idx = repeat(pulse_idx, inner=num_repeats)
-    cal_seqs = [ [reduce(⊗, p(q) for (p,q) in zip(cal_set[idx], qubits)), meas_block] for idx in pulse_idx ]
+    return[ [reduce(⊗, p(q) for (p,q) in zip(cal_set[idx], qubits)), meas_block] for idx in pulse_idx ]
 end
