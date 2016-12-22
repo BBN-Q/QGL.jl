@@ -8,6 +8,7 @@ function create_tomo_blocks(qubits::Tuple{Vararg{Qubit}}; num_pulses::Int=4)
     else
         error("Only able to handle num_pulses=4 or 6")
     end
+    # TODO: replace with lexproduct when https://github.com/JuliaLang/julia/pull/18825 is merged
     pulse_mat = Base.product(fill(1:num_pulses,length(qubits))...)
     return [reduce(⊗, tomo_set[pulse_ind[ct]](qubits[end-ct+1]) for ct in 1:length(pulse_ind)) for pulse_ind in pulse_mat]
 end
@@ -20,6 +21,7 @@ end
 function create_cal_seqs(qubits::Tuple{Vararg{Qubit}}; num_repeats::Int=2)
     cal_set = [Id, X]
     meas_block = reduce(⊗, [MEAS(q) for q in qubits])
+    # TODO: replace with lexproduct when https://github.com/JuliaLang/julia/pull/18825 is merged
     pulse_mat = Base.product(fill(1:length(qubits),length(qubits))...)
     cal_seqs = [[reduce(⊗, cal_set[pulse_ind[ct]](qubits[end-ct+1]) for ct in 1:length(pulse_ind)), meas_block] for pulse_ind in pulse_mat for _ in 1:num_repeats]
 end
