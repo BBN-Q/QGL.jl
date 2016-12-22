@@ -185,13 +185,13 @@ function MEAS(q::Qubit)
 	return pb
 end
 
-function flat_top_gaussian(chan)
-	return [Uθ(chan, chan.shape_params["riseFall"], chan.shape_params["amp"], chan.shape_params["phase"], "gaussOn"),
-	Uθ(chan, chan.shape_params["length"], chan.shape_params["amp"], chan.shape_params["phase"], "constant"),
-	Uθ(chan, chan.shape_params["riseFall"], chan.shape_params["amp"], chan.shape_params["phase"], "gaussOff")]
+function flat_top_gaussian(chan; pi_shift = false)
+	return [Uθ(chan, chan.shape_params["riseFall"], chan.shape_params["amp"], chan.shape_params["phase"]/2π + 0.5*pi_shift, "gaussOn"),
+	Uθ(chan, chan.shape_params["length"], chan.shape_params["amp"], chan.shape_params["phase"]/2π + 0.5*pi_shift, "constant"),
+	Uθ(chan, chan.shape_params["riseFall"], chan.shape_params["amp"], chan.shape_params["phase"]/2π + 0.5*pi_shift, "gaussOff")]
 end
 
 function ZX90(qc::Qubit, qt::Qubit)
 	CRchan = Edge(qc,qt)
-  return PulseBlock(Dict(CRchan => vcat(flat_top_gaussian(CRchan), [Id(CRchan, qc.shape_params["length"])], flat_top_gaussian(CRchan), [Id(CRchan, qc.shape_params["length"])]), qc => [Id(qc, CRchan.shape_params["length"]+2*CRchan.shape_params["riseFall"]), X(qc), Id(qc, CRchan.shape_params["length"]+2*CRchan.shape_params["riseFall"]), X(qc)]))
+  return PulseBlock(Dict(CRchan => vcat(flat_top_gaussian(CRchan), [Id(CRchan, qc.shape_params["length"])], flat_top_gaussian(CRchan; pi_shift = true), [Id(CRchan, qc.shape_params["length"])]), qc => [Id(qc, CRchan.shape_params["length"]+2*CRchan.shape_params["riseFall"]), X(qc), Id(qc, CRchan.shape_params["length"]+2*CRchan.shape_params["riseFall"]), X(qc)]))
 end
