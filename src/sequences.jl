@@ -2,7 +2,7 @@ using Iterators
 
 export state_tomo, create_cal_seqs
 
-function create_tomo_blocks(qubits::Tuple{Vararg{Qubit}}, num_pulses::Int64 = 4)
+function create_tomo_blocks(qubits::Tuple{Vararg{Qubit}}; num_pulses::Int=4)
     if num_pulses == 4
         tomo_set = [Id, X90, Y90, X]
     elseif num_pulses == 6
@@ -14,12 +14,12 @@ function create_tomo_blocks(qubits::Tuple{Vararg{Qubit}}, num_pulses::Int64 = 4)
     return [reduce(⊗, tomo_set[pulse_ind[ct]](qubits[end-ct+1]) for ct in 1:length(pulse_ind)) for pulse_ind in pulse_mat]
 end
 
-function state_tomo{T<:QGL.SequenceEntry}(seq::Vector{T}, qubits::Tuple{Vararg{Qubit}}, num_pulses::Int64 = 4)
+function state_tomo{T<:QGL.SequenceEntry}(seq::Vector{T}, qubits::Tuple{Vararg{Qubit}}; num_pulses::Int = 4)
     measBlock = reduce(⊗, [MEAS(q) for q in qubits])
     return [[seq; tomoBlock; measBlock] for tomoBlock in create_tomo_blocks(qubits, num_pulses)]
 end
 
-function create_cal_seqs(qubits::Tuple{Vararg{Qubit}}, num_repeats::Int64 = 2)
+function create_cal_seqs(qubits::Tuple{Vararg{Qubit}}; num_repeats::Int=2)
     cal_set = [Id, X]
     meas_block = reduce(⊗, [MEAS(q) for q in qubits])
     pulse_mat = product(fill(1:length(qubits),length(qubits))...)
