@@ -167,6 +167,9 @@ function waveform(p::Pulse, sampling_rate)
 	shape_params[:samplingRate] = sampling_rate
 	shape_params[:length] = p.length
 	shape_params[:shapeFun] = p.shapeFun
+	# amplitude and phase will be applied later in translators
+	delete!(shape_params, :amp)
+	delete!(shape_params, :phase)
 	return shape_params[:shapeFun](;shape_params...)
 end
 
