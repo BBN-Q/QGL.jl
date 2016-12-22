@@ -182,7 +182,7 @@ function MEAS(q::Qubit)
 	return pb
 end
 
-function flat_top_gaussian(chan)
+function flat_top_gaussian(chan; pi_shift = false)
 	return [Uθ(chan, chan.shape_params["riseFall"], chan.shape_params["amp"], chan.shape_params["phase"]/2π + 0.5*pi_shift, "gaussOn"),
 	Uθ(chan, chan.shape_params["length"], chan.shape_params["amp"], chan.shape_params["phase"]/2π + 0.5*pi_shift, "constant"),
 	Uθ(chan, chan.shape_params["riseFall"], chan.shape_params["amp"], chan.shape_params["phase"]/2π + 0.5*pi_shift, "gaussOff")]
