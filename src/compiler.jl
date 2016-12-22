@@ -54,20 +54,25 @@ function compile_to_hardware{T}(seq::Vector{T}, base_filename; suffix="")
 
 	# map the labeled channels to physical channels and bundle per APS/AWG
 	AWGs = Dict{String, Dict}()
+	chan_str_map = Dict("12"=>:ch12, "12m1"=>:m1, "12m2"=>:m2, "12m3"=>:m3, "12m4"=>:m4)
 	for chan in chans
 		# look up AWG and channel from convention of AWG-chan
 		# TODO: make native and explicit
 		(awg, chan_str) = split(chan.awg_channel, '-')
 		# TODO: map is currently only for APS2 - should be looked up from somewhere
-		chan_str_map = Dict("12"=>:ch12, "12m1"=>:m1, "12m2"=>:m2, "12m3"=>:m3, "12m4"=>:m4)
-		get!(AWGs, awg, Dict{Symbol, Channel}())[chan_str_map[chan_str]] = chan
+		# there can be multiple logical channels mapped to the same physical channel
+		if haskey(AWGs, awg) && haskey(AWGs[awg], chan_str_map[chan_str])
+			push!(AWGs[awg][chan_str_map[chan_str]], chan)
+		else
+			get!(AWGs, awg, Dict{Symbol, Array{QGL.Channel}}())[chan_str_map[chan_str]] = [chan]
+	  end
 	end
 
 	translator_map = Dict("APS2Pattern" => APS2)
 	for (awg, ch_map) in AWGs
 		# use first channel to lookup translator from pyQGL
 		# TODO: make native and explicit
-		first_chan = collect(values(ch_map))[1]
+		first_chan = collect(values(ch_map))[1][1]
 		phys_chan = chan_lib[first_chan.awg_channel]
 		translator = translator_map[ phys_chan[:translator] ]
 		translator.write_sequence_file(base_filename*"-$awg.h5", seqs, pulses, ch_map)
