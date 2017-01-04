@@ -2,6 +2,19 @@
 
 A performance orientated [QGL](https://github.com/BBN-Q/QGL) compiler.
 
+## Installation
+
+The package is not yet registered with METADATA.jl and so must be cloned with
+
+```julia
+Pkg.clone("https://github.com/BBN-Q/QGL.jl.git")
+```
+
+## Python QGL dependency
+
+For now we still rely on the [python QGL]([QGL](https://github.com/BBN-Q/QGL))
+being available via PyCall.jl. Make sure it is on your `PYTHONPATH` before
+staring julia.
 
 ## Benchmarks
 
