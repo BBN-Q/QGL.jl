@@ -2,6 +2,7 @@ module QGL
 
 include("channels.jl")
 include("pulses.jl")
+include("pulseshapes.jl")
 include("controlflow.jl")
 include("APS2.jl")
 include("compiler.jl")
