@@ -9,23 +9,37 @@ immutable Pulse
 	amp::Float64
 	phase::Float64
 	frequency::Float64
-	shapeFun::PyObject
+	shape_params::Dict{Symbol, Any}
 	hash::UInt
 end
 
-_hash(p::Pulse) =
-	hash(p.label,
-	hash(p.channel,
-	hash(p.length,
-	hash(p.amp,
-	hash(p.phase,
-	hash(p.frequency,
-	hash(p.shapeFun)))))))
+function Pulse(
+		label::String,
+		chan::Channel,
+		length::Real=0.0,
+		amp::Real=0.0,
+		phase::Real=0.0,
+		frequency::Real=0.0,
+		shape_params=Dict{Symbol,Any}())
 
-function Pulse(label::String, channel::Channel, length::Real=0.0, amp::Real=0.0, phase::Real=0.0, frequency::Real=0.0, shapeFun::PyObject=channel.shape_params["shapeFun"])
-	# precompute pulse has we'll call it for each pulse we compile
-	pulse_hash = hash(label, hash(channel, hash(length, hash(amp, hash(phase, hash(frequency, hash(shapeFun)))))))
-	Pulse(label, channel, Float64(length), Float64(amp), Float64(phase), Float64(frequency), shapeFun, pulse_hash)
+	# override the default channel parameters with any passed in
+	shape_params = merge(chan.shape_params, shape_params)
+
+	# amplitude and phase will be applied later in translators
+	delete!(shape_params, :amp)
+	delete!(shape_params, :phase)
+
+	# detemine the necessary parameters
+	# WARNING! this is obviously subject to change in Julia Base
+	ml = methods(shape_params[:shape_function])
+	m = collect(ml)[1]
+	kwargs = Base.kwarg_decl(m.sig, typeof(ml.mt.kwsorter))
+
+	filter!((k,v) -> k == :shape_function || k in kwargs, shape_params)
+
+	# precompute pulse hash we'll evaluate it for each pulse we compile
+	pulse_hash = hash(label, hash(chan, hash(length, hash(amp, hash(phase, hash(frequency, hash(shape_params)))))))
+	Pulse(label, chan, Float64(length), Float64(amp), Float64(phase), Float64(frequency), shape_params, pulse_hash)
 end
 
 ==(a::Pulse, b::Pulse) = a.hash == b.hash
@@ -39,22 +53,22 @@ immutable ZPulse
 	angle::Float64
 end
 
-
+# loop through and eval to  create some basic 90/180 pulses
+# quote the pi2Amp/piAmp symbols to interpolate the symbol
 for (func, label, amp, phase) in [
-	(:X90,  "X90",  "pi2Amp", 0),
-	(:X,    "X",    "piAmp",  0),
-	(:X90m, "X90m", "pi2Amp", 0.5),
-	(:Y90,  "Y90",  "pi2Amp", 0.25),
-	(:Y,    "Y",    "piAmp",  0.25),
-	(:Y90m, "Y90m", "pi2Amp", 0.75)
+	(:X90,  "X90",  :(:pi2Amp), 0),
+	(:X,    "X",    :(:piAmp),  0),
+	(:X90m, "X90m", :(:pi2Amp), 0.5),
+	(:Y90,  "Y90",  :(:pi2Amp), 0.25),
+	(:Y,    "Y",    :(:piAmp),  0.25),
+	(:Y90m, "Y90m", :(:pi2Amp), 0.75)
 	]
-	@eval $func(q) = Pulse($label, q, q.shape_params["length"], q.shape_params[$amp], $phase, 0)
+	@eval $func(q) = Pulse($label, q, q.shape_params[:length], q.shape_params[$amp], $phase, 0)
 end
 
-U90(q::Qubit, phase::Float64 = 0.0) = Pulse("U90", q, q.shape_params["length"], 0.25, phase, 0)
-Uθ(q::Union{Qubit, Edge}, angle::Float64, phase::Float64) = Pulse("Uθ", q, q.shape_params["length"], angle, phase, 0)
-Uθ(q::Union{Qubit, Edge}, angle::Float64, phase::Float64, shape::String) = Pulse("Uθ", q, q.shape_params["length"], angle, phase, 0, pyQGL.PulseShapes[Symbol(shape)])
-Uθ(q::Union{Qubit, Edge}, length::Float64, angle::Float64, phase::Float64, shape::String) = Pulse("Uθ", q, length, angle, phase, 0, pyQGL.PulseShapes[Symbol(shape)])
+U90(q::Qubit, phase::Float64=0.0) = Pulse("U90", q, q.shape_params[:length], 0.25, phase, 0)
+Uθ(q::Union{Qubit, Edge}, amp, phase) = Pulse("Uθ", q, q.shape_params[:length], amp, phase)
+Uθ(q::Union{Qubit, Edge}, amp, phase, freq, shape_params) = Pulse("Uθ", q, q.shape_params[:length], amp, phase, freq, shape_params)
 
 Z(q::Union{Qubit, Edge}, angle=0.5) = ZPulse("Z", q, angle)
 Z90(q::Union{Qubit, Edge}) = ZPulse("Z90", q, 0.25)
@@ -160,38 +174,56 @@ end
 length(p::Pulse) = p.length
 length(pb::PulseBlock) = maximum(sum(length(p) for p in ps) for ps in values(pb.pulses))
 
-# TODO: make native and handle TA pairs
+"""
+	waveform(p::Pulse, sampling_rate)
+
+Render a waveform for a pulse at a given sampling rate.
+"""
 function waveform(p::Pulse, sampling_rate)
-	# copy shape parameters from channel and convert to symbols to splat in call below
-	shape_params = Dict(Symbol(k) => v for (k,v) in p.channel.shape_params)
-	shape_params[:samplingRate] = sampling_rate
-	shape_params[:length] = p.length
-	shape_params[:shapeFun] = p.shapeFun
-	# amplitude and phase will be applied later in translators
-	delete!(shape_params, :amp)
-	delete!(shape_params, :phase)
-	return shape_params[:shapeFun](;shape_params...)
+	params = copy(p.shape_params)
+	shape_function = pop!(params, :shape_function)
+	return shape_function(;pulse_length=p.length, sampling_rate=sampling_rate, params...)
 end
 
 function MEAS(q::Qubit)
 	m = measurement_channel(q)
-	meas_pulse = Pulse("MEAS", m, m.shape_params["length"], m.shape_params["amp"], 0.0, m.shape_params["autodyne_freq"])
+	meas_pulse = Pulse("MEAS", m, m.shape_params[:length], m.shape_params[:amp], 0.0, m.shape_params[:autodyne_freq])
 	pb = PulseBlock(meas_pulse)
 	if m.trigger_channel != ""
 		t = Marker(m.trigger_channel)
-		trig_pulse = Pulse("TRIG", t, t.shape_params["length"], 1.0)
+		trig_pulse = Pulse("TRIG", t, t.shape_params[:length], 1.0)
 		pb = pb ⊗ trig_pulse
 	end
 	return pb
 end
 
-function flat_top_gaussian(chan; pi_shift = false)
-	return [Uθ(chan, chan.shape_params["riseFall"], chan.shape_params["amp"], chan.shape_params["phase"]/2π + 0.5*pi_shift, "gaussOn"),
-	Uθ(chan, chan.shape_params["length"], chan.shape_params["amp"], chan.shape_params["phase"]/2π + 0.5*pi_shift, "constant"),
-	Uθ(chan, chan.shape_params["riseFall"], chan.shape_params["amp"], chan.shape_params["phase"]/2π + 0.5*pi_shift, "gaussOff")]
+"""
+	flat_top_gaussian(chan; pi_shift=false)
+
+Helper function that returns an Array of pulses to implement a flat-topped gaussian pulse.
+"""
+function flat_top_gaussian(chan; pi_shift=false)
+	pulse_phase = chan.shape_params[:phase]/2π + 0.5*pi_shift
+	pulse_amp = chan.shape_params[:amp]
+	return [
+		Uθ(chan, chan.shape_params[:riseFall], pulse_amp, pulse_phase,
+			Dict(:shape_function => getfield(QGL.PulseShapes, :half_gaussian), :direction => QGL.PulseShapes.HALF_GAUSSIAN_RISE)),
+		Uθ(chan, chan.shape_params[:length], pulse_amp, pulse_phase, Dict(:shape_function => getfield(QGL.PulseShapes, :constant))),
+		Uθ(chan, chan.shape_params[:riseFall], pulse_amp, pulse_phase,
+			Dict(:shape_function => getfield(QGL.PulseShapes, :half_gaussian), :direction => QGL.PulseShapes.HALF_GAUSSIAN_RISE))
+	]
 end
 
+"""
+	ZX90(qc::Qubit, qt::Qubit)
+
+Implements an echoed ZX90 "cross-resonance" gate.
+"""
 function ZX90(qc::Qubit, qt::Qubit)
 	CRchan = Edge(qc,qt)
-  return PulseBlock(Dict(CRchan => vcat(flat_top_gaussian(CRchan), [Id(CRchan, qc.shape_params["length"])], flat_top_gaussian(CRchan; pi_shift = true), [Id(CRchan, qc.shape_params["length"])]), qc => [Id(qc, CRchan.shape_params["length"]+2*CRchan.shape_params["riseFall"]), X(qc), Id(qc, CRchan.shape_params["length"]+2*CRchan.shape_params["riseFall"]), X(qc)]))
+	flat_top_length = CRchan.shape_params[:length] + 2*CRchan.shape_params[:riseFall]
+  return PulseBlock( Dict(
+		CRchan => [flat_top_gaussian(CRchan); Id(CRchan, qc.shape_params[:length]); flat_top_gaussian(CRchan; pi_shift=true); Id(CRchan, qc.shape_params[:length])],
+		qc => [Id(qc, flat_top_length), X(qc), Id(qc, flat_top_length), X(qc)]
+	))
 end
