@@ -22,11 +22,33 @@ Shape is shifted down to avoid finite cutoff step and start and end of pulse.
 function gaussian(;pulse_length=0.0, sampling_rate=1.2e9, cutoff=2.0)::Vector{Complex128}
 	num_pts = round(UInt, pulse_length*sampling_rate)
 	x_pts = linspace(-cutoff, cutoff, num_pts)
-	# calculate the distance between x_points to extrapolate to the next point
-	# and shift that point to zero
+	# pull the pulse down so there is no bit step and the start/end of the pulse
+	# i.e. find the shift such that the next point in the pulse would be zero
 	x_step = x_pts[2] - x_pts[1]
 	next_val = exp(-0.5 * (x_pts[1] - x_step)^2)
 	shape = 1/(1-next_val) .* (exp.(-0.5 * (x_pts.^2)) - next_val)
+	complex(shape)
+end
+
+@enum HALF_GAUSSIAN_DIRECTION HALF_GAUSSIAN_RISE HALF_GAUSSIAN_FALL
+
+"""
+	half_gaussian(;pulse_length=0.0, sampling_rate=1.2e9, cutoff=2.0, direction=HALF_GAUSSIAN_RISE)
+
+A half gaussian pulse. Can be used as an excitation pulse but also used to round a square pulse.
+"""
+
+function half_gaussian(;pulse_length=0.0, sampling_rate=1.2e9, cutoff=2.0, direction::HALF_GAUSSIAN_DIRECTION=HALF_GAUSSIAN_RISE)
+	num_pts = round(UInt, pulse_length*sampling_rate)
+	x_pts = linspace(-cutoff, 0, num_pts)
+	# pull the pulse down so there is no bit step and the start/end of the pulse
+	# i.e. find the shift such that the next point in the pulse would be zero
+	x_step = x_pts[2] - x_pts[1]
+	next_val = exp(-0.5 * (x_pts[1] - x_step)^2)
+	shape = 1/(1-next_val) .* (exp.(-0.5 * (x_pts.^2)) - next_val)
+	if direction == HALF_GAUSSIAN_FALL
+		reverse!(shape)
+	end
 	complex(shape)
 end
 
