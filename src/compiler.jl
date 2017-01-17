@@ -1,6 +1,3 @@
-using PyCall
-@pyimport QGL
-
 import Base: show, push!
 
 export compile_to_hardware
@@ -47,8 +44,8 @@ function compile_to_hardware{T}(seq::Vector{T}, base_filename; suffix="")
 	seqs, pulses, chans = compile(seq)
 
 	# normalize and inject the channel delays
-	chan_lib = QGL.pyQGL.ChannelLibrary[:channelLib][:channelDict]
-	chan_delays = Dict(chan => chan_lib[chan.awg_channel][:delay] for chan in chans)
+	channel_params = JSON.parsefile(channel_json_file)["channelDict"]
+	chan_delays = Dict(chan => channel_params[chan.awg_channel]["delay"] for chan in chans)
 	normalize_channel_delays!(chan_delays)
 	inject_channel_delays!(seqs, pulses, chan_delays)
 
@@ -57,7 +54,6 @@ function compile_to_hardware{T}(seq::Vector{T}, base_filename; suffix="")
 	chan_str_map = Dict("12"=>:ch12, "12m1"=>:m1, "12m2"=>:m2, "12m3"=>:m3, "12m4"=>:m4)
 	for chan in chans
 		# look up AWG and channel from convention of AWG-chan
-		# TODO: make native and explicit
 		(awg, chan_str) = split(chan.awg_channel, '-')
 		# TODO: map is currently only for APS2 - should be looked up from somewhere
 		# there can be multiple logical channels mapped to the same physical channel
@@ -70,11 +66,10 @@ function compile_to_hardware{T}(seq::Vector{T}, base_filename; suffix="")
 
 	translator_map = Dict("APS2Pattern" => APS2)
 	for (awg, ch_map) in AWGs
-		# use first channel to lookup translator from pyQGL
-		# TODO: make native and explicit
+		# use first channel to lookup translator
 		first_chan = collect(values(ch_map))[1][1]
-		phys_chan = chan_lib[first_chan.awg_channel]
-		translator = translator_map[ phys_chan[:translator] ]
+		phys_chan = channel_params[first_chan.awg_channel]
+		translator = translator_map[ phys_chan["translator"] ]
 		translator.write_sequence_file(base_filename*"-$awg.h5", seqs, pulses, ch_map)
 	end
 	return seqs
@@ -82,7 +77,7 @@ end
 
 function add_slave_trigger!(seq, slave_trig_chan)
 	wait_entry = wait()
-	slave_trig = Pulse("TRIG", slave_trig_chan, slave_trig_chan.shape_params["length"], 1.0)
+	slave_trig = Pulse("TRIG", slave_trig_chan, slave_trig_chan.shape_params[:length], 1.0)
 	for (ct,e) in enumerate(seq)
 		if e == wait_entry
 			# try to add to next entry
@@ -92,16 +87,12 @@ function add_slave_trigger!(seq, slave_trig_chan)
 end
 
 function propagate_frame_change!(seq)
-	#get a dictionary of target qubits and their edges
+	#get a dictionary mapping qubits to edges in the sequence which hold them as target
+	chans = channels(seq)
+	seq_edges = filter(x -> typeof(x) == Edge, chans)
 	qs = qubits(seq)
-	edges = Dict(q => Set{Edge}() for q in qs)
-	for q in qs
-		chan_py = QGL.pyQGL.QubitFactory(q.label)
-		for predecessor in QGL.pyQGL.ChannelLibrary[:channelLib][:connectivityG][:predecessors](chan_py)
-			edge = Edge(Qubit(predecessor[:label]), q)
-			push!(edges[q], edge)
-		end
-	end
+	edges = Dict(q => Set{Edge}(filter(e -> e.target == q, seq_edges)) for q in qs)
+
 	# if there are no edges then we're finished here
 	all(isempty(s) for s in values(edges)) && return
 
