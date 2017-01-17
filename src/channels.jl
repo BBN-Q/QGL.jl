@@ -10,12 +10,12 @@ let cfg_folder = joinpath(Pkg.dir("QGL"), "cfg"), cfg_file = joinpath(cfg_folder
 		global channel_json_file = JSON.parsefile(cfg_file)["channel_params_file"]
 	else
 		println("Please provide path to channel parameters JSON file:")
-		path = chomp(readline())
+		channel_json_file = chomp(readline())
 		if !isdir(cfg_folder)
 			mkdir(cfg_folder)
 		end
 		open(cfg_file, "w") do f
-			JSON.print(f, Dict{String,String}("channel_params_file" => path))
+			JSON.print(f, Dict{String,String}("channel_params_file" => channel_json_file))
 		end
 	end
 end
