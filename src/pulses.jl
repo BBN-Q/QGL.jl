@@ -67,8 +67,8 @@ for (func, label, amp, phase) in [
 end
 
 U90(q::Qubit, phase::Float64=0.0) = Pulse("U90", q, q.shape_params[:length], 0.25, phase, 0)
-Uθ(q::Union{Qubit, Edge}, amp, phase) = Pulse("Uθ", q, q.shape_params[:length], amp, phase)
-Uθ(q::Union{Qubit, Edge}, amp, phase, freq, shape_params) = Pulse("Uθ", q, q.shape_params[:length], amp, phase, freq, shape_params)
+Uθ(q::Union{Qubit, Edge}, length, amp, phase) = Pulse("Uθ", q, length, amp, phase)
+Uθ(q::Union{Qubit, Edge}, length, amp, phase, freq, shape_params) = Pulse("Uθ", q, length, amp, phase, freq, shape_params)
 
 Z(q::Union{Qubit, Edge}, angle=0.5) = ZPulse("Z", q, angle)
 Z90(q::Union{Qubit, Edge}) = ZPulse("Z90", q, 0.25)
@@ -206,11 +206,11 @@ function flat_top_gaussian(chan; pi_shift=false)
 	pulse_phase = chan.shape_params[:phase]/2π + 0.5*pi_shift
 	pulse_amp = chan.shape_params[:amp]
 	return [
-		Uθ(chan, chan.shape_params[:riseFall], pulse_amp, pulse_phase,
+		Uθ(chan, chan.shape_params[:riseFall], pulse_amp, pulse_phase, 0.0,
 			Dict(:shape_function => getfield(QGL.PulseShapes, :half_gaussian), :direction => QGL.PulseShapes.HALF_GAUSSIAN_RISE)),
-		Uθ(chan, chan.shape_params[:length], pulse_amp, pulse_phase, Dict(:shape_function => getfield(QGL.PulseShapes, :constant))),
-		Uθ(chan, chan.shape_params[:riseFall], pulse_amp, pulse_phase,
-			Dict(:shape_function => getfield(QGL.PulseShapes, :half_gaussian), :direction => QGL.PulseShapes.HALF_GAUSSIAN_RISE))
+		Uθ(chan, chan.shape_params[:length], pulse_amp, pulse_phase, 0.0, Dict(:shape_function => getfield(QGL.PulseShapes, :constant))),
+		Uθ(chan, chan.shape_params[:riseFall], pulse_amp, pulse_phase, 0.0,
+			Dict(:shape_function => getfield(QGL.PulseShapes, :half_gaussian), :direction => QGL.PulseShapes.HALF_GAUSSIAN_FALL))
 	]
 end
 
