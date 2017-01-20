@@ -67,7 +67,7 @@ function drag(;pulse_length=0.0, sampling_rate=1.2e9, cutoff=2.0, drag_scaling=1
 	# the pulse pulse_length in σ or x units is 2*cutoff so t = (num_points/(2*cutoff)) x
 	num_pts = round(UInt, pulse_length*sampling_rate)
 	x_pts = linspace(-cutoff, cutoff, num_pts)
-	deriv_scale = 2*cutoff / num_points
+	deriv_scale = 2*cutoff / num_pts
 	quadrature = deriv_scale * drag_scaling * x_pts .* inphase
 	complex(inphase, quadrature)
 end

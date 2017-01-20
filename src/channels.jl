@@ -74,7 +74,7 @@ function Qubit(label)
 end
 
 """
-Channel represeting a digital output marker line.
+Channel representing a digital output marker line.
 """
 immutable Marker <: Channel
 	label::String
