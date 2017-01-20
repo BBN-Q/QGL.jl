@@ -1,5 +1,7 @@
 # QGL.jl
 
+[![Build Status](https://travis-ci.org/BBN-Q/QGL.jl.svg?branch=master)](https://travis-ci.org/BBN-Q/QGL.jl)
+
 A performance orientated [QGL](https://github.com/BBN-Q/QGL) compiler.
 
 ## Installation

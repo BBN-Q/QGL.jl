@@ -4,7 +4,7 @@ import Base: show, ==, hash
 
 export Qubit, Edge, Marker
 
-global channel_json_file
+channel_json_file = ""
 let cfg_folder = joinpath(Pkg.dir("QGL"), "cfg"), cfg_file = joinpath(cfg_folder, "cfg.json")
 	if isdir(cfg_folder) && isfile(cfg_file)
 		global channel_json_file = JSON.parsefile(cfg_file)["channel_params_file"]
