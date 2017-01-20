@@ -19,9 +19,15 @@ using QGL
 using Base.Test
 
 try
+@testset "Qubits" begin
+q1 = Qubit("q1")
+@test q1.label == "q1"
+end
+
 @testset "Pulse Creation" begin
+q1 = Qubit("q1")
 p = X90(q1)
-@test p.label = "X90"
+@test p.label == "X90"
 end
 
 finally
