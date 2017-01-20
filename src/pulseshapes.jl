@@ -69,7 +69,7 @@ function drag(;pulse_length=0.0, sampling_rate=1.2e9, cutoff=2.0, drag_scaling=1
 	x_pts = linspace(-cutoff, cutoff, num_pts)
 	deriv_scale = 2*cutoff / num_pts
 	quadrature = deriv_scale * drag_scaling * x_pts .* inphase
-	complex(inphase, quadrature)
+	complex(inphase + 1im*quadrature)
 end
 
 """
