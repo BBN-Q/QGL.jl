@@ -81,7 +81,7 @@ function Id(c::Channel, length)
 	# TODO: inject constant pulse shape
 	Pulse("Id", c, length, 0.0)
 end
-Id(c::Channel) = Id(c, c.shape_params["length"])
+Id(c::Channel) = Id(c, c.shape_params[:length])
 
 
 function AC(q::Qubit, num)
