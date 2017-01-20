@@ -26,7 +26,6 @@ the sequence creation script in `test/benchmark.jl`. With `q1` having 20ns
 pulses and 100MHz sidebanding frequency and at commit 3a12d61:
 
 ```julia
-julia> push!(LOAD_PATH, "/home/cryan/Programming/Repos/QGL.jl/src");
 julia> using QGL
 julia> q1 = Qubit("q1")
 q1
