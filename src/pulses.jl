@@ -97,7 +97,7 @@ function AC(q::Qubit, num; sampling_rate = 1.2e9)
 			q -> Z90(q),
 			q -> Z(q),
 			q -> Z90m(q),
-			q -> U90(q, 1/8)
+			q -> U90(q, 1/8),
 			q -> U90(q, -1/8)
 		]
 		return pulses[num](q)
