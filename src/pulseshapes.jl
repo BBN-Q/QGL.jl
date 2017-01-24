@@ -122,7 +122,7 @@ function CLEAR(;pulse_length=0.0, sampling_rate=1.2e9, sigma=0.0, steady_state=0
 end
 
 """
-	arb_axis_drag(;pulse_length=0.0, sampling_rate=1.2e9, nut_freq=10e6, rot_angle=0.0, polar_angle=0.0, ϕ=0.0, drag_scaling=0.0)
+	arb_axis_drag(;pulse_length=0.0, sampling_rate=1.2e9, nut_freq=10e6, rot_angle=0.0, polar_angle=0.0, drag_scaling=0.0)
 
 Single-qubit arbitrary axis pulse implemented with phase ramping and frame change.
 Parameters
@@ -131,7 +131,7 @@ Parameters
     polarAngle : polar angle of rotation axis (radians)
     aziAngle : azimuthal (radians)
 """
-function arb_axis_drag(;pulse_length=0.0, sampling_rate=1.2e9, nut_freq=10e6, rot_angle=0.0, Θ=0.0, ϕ=0.0, drag_scaling=0.0)::Vector{Complex128}
+function arb_axis_drag(;pulse_length=0.0, sampling_rate=1.2e9, nut_freq=10e6, rot_angle=0.0, Θ=0.0, drag_scaling=0.0)::Vector{Complex128}
 	if pulse_length > 0
 		# start from a gaussian shaped pulse
 		gauss_pulse = gaussian(pulse_length=pulse_length, sampling_rate=sampling_rate)
