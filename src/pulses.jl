@@ -120,11 +120,11 @@ function AC(q::Qubit, num; sampling_rate=1.2e9)
 		xz = 1/8
 		xyzₚ = acos(1/√3) / 2π
 		xyzₘ = (π - acos(1/√3) ) / 2π
-		Θ = [xz, xz, xz, xz, xyzₚ, xyzₘ, xyzₚ, xyzₘ, xyzₘ, xyzₚ, xyzₚ, xyzₘ ]
+		Θ = [xz, xz, xz, xz, xyzₚ, xyzₘ, xyzₚ, xyzₘ, xyzₘ, xyzₚ, xyzₚ, xyzₘ]
 		# rotation axis azimuthal angle in portions of circle
 		ϕ = [0, 1/2, 1/4, -1/4, 1/4, 5/8, -1/8, 3/8, 1/8, 5/8, 3/8, -1/8]
 
-		return Pulse("AC", q, q.shape_params[:length], q.shape_params[:piAmp],
+		return Pulse("AC", q, q.shape_params[:length], 1.0,
 		             azi_angle[num-12], q.frequency,
 		             Dict(:shape_function => getfield(QGL.PulseShapes, :arb_axis_drag),
 		                  :nut_freq => nut_freq,
