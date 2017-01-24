@@ -122,7 +122,7 @@ function CLEAR(;pulse_length=0.0, sampling_rate=1.2e9, sigma=0.0, steady_state=0
 end
 
 """
-	arb_axis_drag(;pulse_length=0.0, sampling_rate=1.2e9, nut_freq=10e6, rot_angle=0.0, polar_angle=0.0, azi_angle=0.0, drag_scaling=0.0)
+	arb_axis_drag(;pulse_length=0.0, sampling_rate=1.2e9, nut_freq=10e6, rot_angle=0.0, polar_angle=0.0, ϕ=0.0, drag_scaling=0.0)
 
 Single-qubit arbitrary axis pulse implemented with phase ramping and frame change.
 Parameters
@@ -131,24 +131,24 @@ Parameters
     polarAngle : polar angle of rotation axis (radians)
     aziAngle : azimuthal (radians)
 """
-function arb_axis_drag(;pulse_length=0.0, sampling_rate=1.2e9, nut_freq=10e6, rot_angle=0.0, polar_angle=0.0, azi_angle=0.0, drag_scaling=0.0)::Vector{Complex128}
+function arb_axis_drag(;pulse_length=0.0, sampling_rate=1.2e9, nut_freq=10e6, rot_angle=0.0, Θ=0.0, ϕ=0.0, drag_scaling=0.0)::Vector{Complex128}
 	if pulse_length > 0
-		#Start from a gaussian shaped pulse
+		# start from a gaussian shaped pulse
 		gauss_pulse = gaussian(pulse_length=pulse_length, sampling_rate=sampling_rate)
-		#Scale to achieve to the desired rotation
+		# scale to achieve to the desired rotation
 		cal_scale = (rot_angle/2/pi)*sampling_rate/sum(gauss_pulse)
-		#Calculate the phase ramp steps to achieve the desired Z component to the rotation axis
-		phase_steps = -2*pi*cos(polar_angle)*cal_scale*gauss_pulse/sampling_rate
-		#Calculate Z DRAG correction to phase steps
-        #beta is a conversion between XY drag scaling and Z drag scaling
-		beta = drag_scaling/sampling_rate
-		instantaneous_detuning = beta * (2*pi*cal_scale*sin(polar_angle)*gauss_pulse).^2
+		# calculate the phase ramp steps to achieve the desired Z component to the rotation axis
+		phase_steps = -2π*cos(Θ)*cal_scale*gauss_pulse/sampling_rate
+		# Calculate Z DRAG correction to phase steps
+		# β is a conversion between XY drag scaling and Z drag scaling
+		β = drag_scaling/sampling_rate
+		instantaneous_detuning = β * (2π*cal_scale*sin(Θ)*gauss_pulse).^2
 		phase_steps += instantaneous_detuning*(1/sampling_rate)
 		#center phase ramp around the middle of the pulse time steps
 		phase_ramp = cumsum(phase_steps) - phase_steps/2
 		frame_change = sum(phase_steps)
-		shape = (1/nut_freq)*sin(polar_angle)*cal_scale*gauss_pulse.*exp(1im*phase_ramp)
-	elseif abs(polar_angle) <1e-10
+		shape = (1/nut_freq)*sin(Θ)*cal_scale*gauss_pulse.*exp(1im*phase_ramp)
+	elseif abs(Θ) <1e-10
 		#Otherwise assume we have a zero-length Z rotation
 		frame_change = -rot_angle
 		shape = Vector{Complex128}()

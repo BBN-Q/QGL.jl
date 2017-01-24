@@ -83,9 +83,13 @@ function Id(c::Channel, length)
 end
 Id(c::Channel) = Id(c, c.shape_params[:length])
 
+"""
+	AC(q::Qubit, num; sampling_rate=1.2e9)
 
-function AC(q::Qubit, num; sampling_rate = 1.2e9)
-	if 0<num<=12
+Atomic Clifford `num` on a single qubit `q`. AC pulses are enumerated 1:24.
+"""
+function AC(q::Qubit, num; sampling_rate=1.2e9)
+	if 0 < num <= 12
 		pulses = [
 			q -> Id(q),
 			q -> X90(q),
@@ -102,18 +106,27 @@ function AC(q::Qubit, num; sampling_rate = 1.2e9)
 		]
 		return pulses[num](q)
 	elseif num<=24
-		#Figure out the approximate nutation frequency calibration from the X180 and the sampling_rate
+		# figure out the approximate nutation frequency calibration from the X180
+		# and the sampling_rate.  This isn't ideal as it breaks the split between
+		# the pulse and the hardware representation
 		Xp = X(q)
-	    xpulse = waveform(Xp, sampling_rate)
-	    nut_freq = 0.5/sum(xpulse)/sampling_rate
-	    rot_angle = [fill(0.5, 4); fill(1/3, 8)]
-	    polar_angle = [fill(1/8, 4); acos(1/sqrt(3))/2π; 0.5-acos(1/sqrt(3))/2π; acos(1/sqrt(3))/2π; 0.5-acos(1/sqrt(3))/2π;
-	    	0.5-acos(1/sqrt(3))/2π; acos(1/sqrt(3))/2π; acos(1/sqrt(3))/2π; 0.5-acos(1/sqrt(3))/2π]
-	    azi_angle = [0, 1/2, 1/4, -1/4, 1/4, 5/8, -1/8, 3/8, 1/8, 5/8, 3/8, -1/8]
+		xpulse = waveform(Xp, sampling_rate)
+		nut_freq = 0.5/sum(xpulse)/sampling_rate
 
-	    return Pulse("AC", q, q.shape_params[:length], q.shape_params[:piAmp], 0.0, q.frequency,
-			Dict(:shape_function => getfield(QGL.PulseShapes, :arb_axis_drag), :nut_freq => nut_freq,
-			:rot_angle => rot_angle[num-12], :polar_angle => polar_angle[num-12], :azi_angle => azi_angle[num-12]))
+		rot_angle = [fill(0.5, 4); fill(1/3, 8)]
+
+		# rotation axis polar angle in portions of circle
+		# comes in three flavours: x+z or y+z, xy+z and xy-z
+		xz↑ = 1/8
+		xyz↑ = acos(1/√3) / 2π
+		xyz↓ = (π - acos(1/√3) ) / 2π
+		Θ = [xz↑, xz↑, xz↑, xz↑, xyz↑, xyz↓, xyz↑, xyz↓, xyz↓, xyz↑, xyz↑, xyz↓ ]
+		# rotation axis azimuthal angle in portions of circle
+		ϕ = [0, 1/2, 1/4, -1/4, 1/4, 5/8, -1/8, 3/8, 1/8, 5/8, 3/8, -1/8]
+
+		return Pulse("AC", q, q.shape_params[:length], q.shape_params[:piAmp], 0.0, q.frequency,
+		Dict(:shape_function => getfield(QGL.PulseShapes, :arb_axis_drag), :nut_freq => nut_freq,
+		:rot_angle => rot_angle[num-12], :polar_angle => polar_angle[num-12], :azi_angle => azi_angle[num-12]))
 	else
 		error("Invalid Clifford number")
     end
