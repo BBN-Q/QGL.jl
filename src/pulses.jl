@@ -125,11 +125,11 @@ function AC(q::Qubit, num; sampling_rate=1.2e9)
 		ϕ = [0, 1/2, 1/4, -1/4, 1/4, 5/8, -1/8, 3/8, 1/8, 5/8, 3/8, -1/8]
 
 		return Pulse("AC", q, q.shape_params[:length], 1.0,
-		             azi_angle[num-12], q.frequency,
+		             ϕ[num-12], q.frequency,
 		             Dict(:shape_function => getfield(QGL.PulseShapes, :arb_axis_drag),
 		                  :nut_freq => nut_freq,
 		                  :rot_angle => rot_angle[num-12],
-		                  :Θ => polar_angle[num-12]))
+		                  :Θ => Θ[num-12]))
 	else
 		error("Invalid single qubit Atomic Clifford number")
 	end
