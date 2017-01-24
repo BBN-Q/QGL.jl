@@ -111,7 +111,7 @@ function AC(q::Qubit, num; sampling_rate=1.2e9)
 		# the pulse and the hardware representation
 		Xp = X(q)
 		xpulse = waveform(Xp, sampling_rate)
-		nut_freq = 0.5/sum(xpulse)/sampling_rate
+		nut_freq = 0.5/sum(xpulse)*sampling_rate
 
 		rot_angle = [fill(0.5, 4); fill(1/3, 8)]
 
