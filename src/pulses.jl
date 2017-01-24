@@ -117,10 +117,10 @@ function AC(q::Qubit, num; sampling_rate=1.2e9)
 
 		# rotation axis polar angle in portions of circle
 		# comes in three flavours: x+z or y+z, xy+z and xy-z
-		xz↑ = 1/8
-		xyz↑ = acos(1/√3) / 2π
-		xyz↓ = (π - acos(1/√3) ) / 2π
-		Θ = [xz↑, xz↑, xz↑, xz↑, xyz↑, xyz↓, xyz↑, xyz↓, xyz↓, xyz↑, xyz↑, xyz↓ ]
+		xz = 1/8
+		xyzₚ = acos(1/√3) / 2π
+		xyzₘ = (π - acos(1/√3) ) / 2π
+		Θ = [xz, xz, xz, xz, xyzₚ, xyzₘ, xyzₚ, xyzₘ, xyzₘ, xyzₚ, xyzₚ, xyzₘ ]
 		# rotation axis azimuthal angle in portions of circle
 		ϕ = [0, 1/2, 1/4, -1/4, 1/4, 5/8, -1/8, 3/8, 1/8, 5/8, 3/8, -1/8]
 
