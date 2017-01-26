@@ -233,6 +233,9 @@ function push!(pb_cur::PulseBlock, pb_new::PulseBlock, pulses, paddings)
 end
 
 function push!{T<:Union{Pulse, ZPulse}}(pb_cur::PulseBlock, p::T, pulses, paddings)
+	#elide zero-length Pulses and 0-angle Z rotations
+	typeof(p) == Pulse && length(p) == 0 && return
+	typeof(p) == ZPulse && p.angle == 0.0 && return
 	for chan in channels(pb_cur)
 		if chan == p.channel
 			apply_padding!(chan, pb_cur, paddings, pulses)
