@@ -19,7 +19,9 @@ Preliminary benchmarks show speed-ups for Python QGL of ~25-30X.
 In the absence of proper benchmarking and regression testing we use the 1 qubit
 GST sequences from [QGL issue #69](https://github.com/BBN-Q/QGL/issues/69) and
 the sequence creation script in `test/benchmark.jl`. With `q1` having 20ns
-pulses and 100MHz sidebanding frequency and at commit 3a12d61:
+pulses and 100MHz sidebanding frequency and at commit 8fbbee6. Since it takes
+5-6 seconds to compile and the default Benchmarking.jl times out with a single
+run. There is some variation so it is worth running a few trials.
 
 ```julia
 julia> using QGL
@@ -32,18 +34,20 @@ create_1Q_GST_seqs
 julia> seqs = create_1Q_GST_seqs("/home/cryan/Downloads/sequence_numbers.csv", q1);
 
 julia> using BenchmarkTools
-julia> @benchmark compile_to_hardware(seqs, "silly")
+julia> t = @benchmark compile_to_hardware(seqs, "silly") samples=5 seconds=60
 BenchmarkTools.Trial:
-  samples:          1
+  memory estimate:  1.56 gb
+  allocs estimate:  66356642
+  --------------
+  minimum time:     6.685 s (5.09% GC)
+  median time:      7.104 s (5.14% GC)
+  mean time:        7.091 s (5.26% GC)
+  maximum time:     7.373 s (5.65% GC)
+  --------------
+  samples:          5
   evals/sample:     1
   time tolerance:   5.00%
   memory tolerance: 1.00%
-  memory estimate:  1.17 gb
-  allocs estimate:  49861989
-  minimum time:     5.87 s (3.44% GC)
-  median time:      5.87 s (3.44% GC)
-  mean time:        5.87 s (3.44% GC)
-  maximum time:     5.87 s (3.44% GC)
 ```
 
 ## License
