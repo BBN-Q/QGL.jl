@@ -208,22 +208,28 @@ function inject_channel_delays!(seqs, pulses, chan_delays)
 	end
 end
 
+""" Append a Pulse to a specific channel in a PulseBlock """
+function push_channel!(pb::PulseBlock, p::Pulse, pulses, paddings)
+	length(p) == 0.0 && return 	# elide zero-length pulses
+	apply_padding!(p.channel, pb, paddings, pulses)
+	push!(pb.pulses[p.channel], p)
+	push!(pulses[p.channel], p)
+end
 
+""" Append a ZPulse to a specific channel in a PulseBlock """
+function push_channel!(pb::PulseBlock, zp::ZPulse, pulses, paddings)
+	zp.angle == 0.0 && return 	# elide noop Z pulses
+	apply_padding!(zp.channel, pb, paddings, pulses)
+	push!(pb.pulses[zp.channel], zp)
+end
+
+""" Concatenate two PulseBlocks """
 function push!(pb_cur::PulseBlock, pb_new::PulseBlock, pulses, paddings)
 	pb_new_length = length(pb_new)
 	for chan in channels(pb_cur)
 		if chan in channels(pb_new)
-			apply_padding!(chan, pb_cur, paddings, pulses)
 			for p in pb_new.pulses[chan]
-				#elide zero-length Pulses and 0-angle Z rotations
-				typeof(p) == Pulse && length(p) == 0 && continue
-				typeof(p) == ZPulse && p.angle == 0.0 && continue
-
-				# push pulse into array and pulse set
-				push!(pb_cur.pulses[chan], p)
-				if typeof(p) == Pulse
-					push!(pulses[chan], p)
-				end
+				push_channel!(pb_cur, p, pulses, paddings)
 			end
 			paddings[chan] += pb_new_length - sum(length(p) for p in pb_new.pulses[chan])
 		else
@@ -232,22 +238,21 @@ function push!(pb_cur::PulseBlock, pb_new::PulseBlock, pulses, paddings)
 	end
 end
 
-function push!{T<:Union{Pulse, ZPulse}}(pb_cur::PulseBlock, p::T, pulses, paddings)
-	#elide zero-length Pulses and 0-angle Z rotations
-	typeof(p) == Pulse && length(p) == 0 && return
-	typeof(p) == ZPulse && p.angle == 0.0 && return
+""" Append a Pulse to a PulseBlock """
+function push!(pb_cur::PulseBlock, p::Pulse, pulses, paddings)
+	length(p) == 0.0 && return 	# elide zero-length pulses
+	# push pulse onto appropriate channel and pad the other channels
 	for chan in channels(pb_cur)
 		if chan == p.channel
-			apply_padding!(chan, pb_cur, paddings, pulses)
-			push!(pb_cur.pulses[chan], p)
-			if typeof(p) == Pulse
-				push!(pulses[chan], p)
-			end
+			push_channel!(pb_cur, p, pulses, paddings)
 		else
 			paddings[chan] += length(p)
 		end
 	end
 end
+
+""" Append a ZPulse to a PulseBlock """
+push!(pb_cur::PulseBlock, zp::ZPulse, pulses, paddings) =	push_channel!(pb_cur, zp, pulses, paddings)
 
 function apply_padding!(chan, pb, paddings, pulses)
 	if paddings[chan] > 1e-16 #arbitrarily eps for Float64 relative to 1.0
