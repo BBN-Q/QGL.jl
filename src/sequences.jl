@@ -55,3 +55,115 @@ function cal_seqs(qubits::Tuple{Vararg{Qubit}}; num_repeats::Int=2)
     pulse_combos = repeat(vec(pulse_combos), inner=num_repeats)
     return [ [reduce(⊗, p(q) for (p,q) in zip(pulses, qubits)), meas_block] for pulses in pulse_combos]
 end
+
+"""
+Create and optionally compile a RabiWidth experiment for a single qubit assuming
+a tanh pulse shape and a piAmp amplitude
+
+RabiWidth(qubit, pulseSpacings; compile=true)
+
+Parameters
+-------
+qubit           : qubit in scope
+pulseSpacings   : iterable of experiment time steps in seconds
+compile         : if true, compile the sequence to .h5 files
+
+Returns
+-------
+seqs            : Array of sequences
+
+Ex: RabiWidth(q, 1e-9*linspace(10, 2010, 201))
+"""
+function RabiWidth(qubit, pulseSpacings; compile::Bool=true)
+    qubit.shape_params[:shape_function] = QGL.PulseShapes.tanh;
+	seqs = [[Uθ(qubit, len, qubit.shape_params[:piAmp], 0., qubit.frequency, qubit.shape_params),
+        MEAS(qubit)] for len in pulseSpacings]
+    if compile
+	   compile_to_hardware(seqs, "Rabi");
+    end
+    return seqs
+end
+
+"""
+Create and optionally compile a RabiAmp experiment for a single qubit
+
+RabiWidth(qubit, amps; compile=true)
+
+Parameters
+-------
+qubit           : qubit in scope
+amps            : iterable of experiment amplitudes [-1,1]
+compile         : if true, compile the sequence to .h5 files
+
+Returns
+-------
+seqs            : Array of sequences
+
+Ex: RabiAmp(q, linspace(-1, 1, 101))
+"""
+
+function RabiAmp(qubit, amps; compile::Bool=true)
+	seqs = [[Uθ(qubit, qubit.shape_params[:length], amp, 0.),
+        MEAS(qubit)] for amp in amps]
+    if compile
+        compile_to_hardware(seqs, "Rabi");
+    end
+    return seqs
+end
+
+"""
+Create and optionally compile a T1 experiment for a single qubit
+
+InversionRecovery(qubit, amps; compile=true)
+
+qubit           : qubit in scope
+pulseSpacings   : iterable of experiment time steps in seconds
+compile         : if true, compile the sequence to .h5 files
+
+returns         : Array of sequences
+
+Ex: InversionRecovery(q, 1e-9*linspace(10, 2010, 201))
+"""
+
+function InversionRecovery(qubit, pulseSpacings; num_repeats::Int=2, compile::Bool=true)
+	seqs = [[X(qubit), Id(qubit,len), MEAS(qubit)] for len in pulseSpacings];
+    cals = cal_seqs((qubit,), num_repeats = num_repeats);
+    seqs = append!(seqs, cals);
+    if compile
+        compile_to_hardware(seqs, "T1");
+    end
+    return seqs
+end
+
+"""
+Create and optionally compile a Ramsey experiment for a single qubit
+
+Ramsey(qubit, pulseSpacings; TPPIFreq::Float64=0.0, num_repeats::Int=2, compile=true)
+
+Parameters
+-------
+qubit           : qubit in scope
+pulseSpacings   : iterable of experiment time steps in seconds
+TPPIFreq        : time-proportinal phase increment frequency in Hz
+num_repeats     : number of calibration repeats
+compile         : if true, compile the sequence to .h5 files
+
+Returns
+-------
+seqs            : Array of sequences
+
+Ex: Ramsey(q, 1e-9*linspace(10, 2010, 201))
+
+"""
+function Ramsey(qubit, pulseSpacings; TPPIFreq::Float64=0.0, num_repeats::Int=2, compile::Bool=true)
+    phases = TPPIFreq * pulseSpacings
+
+    seqs = [[X90(qubit), Id(qubit, l), Uθ(qubit, qubit.shape_params[:length],
+        qubit.shape_params[:pi2Amp], phase), MEAS(qubit)] for (l, phase) in zip(pulseSpacings, phases)];
+    cals = cal_seqs((qubit,), num_repeats = num_repeats);
+    seqs = append!(seqs, cals);
+    if compile
+        compile_to_hardware(seqs, "Ramsey");
+    end
+    return seqs
+end
