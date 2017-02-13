@@ -146,11 +146,9 @@ function arb_axis_drag(;pulse_length=0.0, sampling_rate=1.2e9, nut_freq=10e6, ro
 		phase_steps += instantaneous_detuning*(1/sampling_rate)
 		#center phase ramp around the middle of the pulse time steps
 		phase_ramp = cumsum(phase_steps) - phase_steps/2
-		frame_change = sum(phase_steps)
 		shape = (1/nut_freq)*sin(Θ)*cal_scale*gauss_pulse.*exp(1im*phase_ramp)
 	elseif abs(Θ) <1e-10
 		#Otherwise assume we have a zero-length Z rotation
-		frame_change = -rot_angle
 		shape = Vector{Complex128}()
 	else
 		error("Non-zero transverse rotation with zero-length pulse.")

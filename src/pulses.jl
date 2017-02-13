@@ -124,12 +124,31 @@ function AC(q::Qubit, num; sampling_rate=1.2e9)
 		# rotation axis azimuthal angle in portions of circle
 		ϕ = [0, 1/2, 1/4, -1/4, 1/4, 5/8, -1/8, 3/8, 1/8, 5/8, 3/8, -1/8]
 
-		return Pulse("AC", q, q.shape_params[:length], 1.0,
+		#TODO: reduce code duplication with pulseshapes.jl
+		if q.shape_params[:length] > 0
+			# start from a gaussian shaped pulse
+			gauss_pulse = PulseShapes.gaussian(pulse_length=q.shape_params[:length], sampling_rate=sampling_rate)
+			# scale to achieve to the desired rotation
+			cal_scale = (rot_angle/2/pi)*sampling_rate/sum(gauss_pulse)
+			# calculate the phase ramp steps to achieve the desired Z component to the rotation axis
+			phase_steps = -2π*cos(Θ)*cal_scale*gauss_pulse/sampling_rate
+			# Calculate Z DRAG correction to phase steps
+			# β is a conversion between XY drag scaling and Z drag scaling
+			β = q.shape_params[:drag_scaling]/sampling_rate
+			instantaneous_detuning = β * (2π*cal_scale*sin(Θ)*gauss_pulse).^2
+			phase_steps += instantaneous_detuning*(1/sampling_rate)
+			frame_change = sum(phase_steps)
+		elseif abs(Θ) <1e-10
+			# Otherwise assume we have a zero-length Z rotation
+			frame_change = -rot_angle
+		end
+
+		return PulseBlock(Dict(q => [Pulse("AC", q, q.shape_params[:length], 1.0,
 		             ϕ[num-12], q.frequency,
 		             Dict(:shape_function => getfield(QGL.PulseShapes, :arb_axis_drag),
 		                  :nut_freq => nut_freq,
 		                  :rot_angle => rot_angle[num-12],
-		                  :Θ => Θ[num-12]))
+		                  :Θ => Θ[num-12])), Z(q, frame_change)]))
 	else
 		error("Invalid single qubit Atomic Clifford number")
 	end
