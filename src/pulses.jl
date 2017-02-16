@@ -2,6 +2,13 @@ import Base: convert, promote_rule, length, ==
 
 export X90, X, X90m, Y90, Y, Y90m, U90, Uθ, Z90, Z, Z90m, Id, ⊗, MEAS, AC, DiAC, ZX90
 
+# NOTE A suggested type hierarchy:
+# abstract AbstractBlock
+#   - abstract AbstractPulse
+#       * immutable Pulse
+#       * immutable ZPulse
+#   - type PulseBlock
+
 immutable Pulse
 	label::String
 	channel::Channel
@@ -86,6 +93,7 @@ Id(c::Channel) = Id(c, c.shape_params[:length])
 
 function AC(q::Qubit, num)
 
+	# NOTE what are you getting by making this a dictionary?
 	pulses = [
 		q -> Id(q),
 		q -> X90(q),
@@ -142,6 +150,7 @@ type PulseBlock
 	pulses::Dict{Channel, Vector{Union{Pulse, ZPulse}}}
 end
 
+# NOTE all these unions suggest the need for an AbstractPulse type
 convert{T<:Union{Pulse, ZPulse}}(::Type{PulseBlock}, p::T) = PulseBlock(Dict(p.channel => [p]))
 PulseBlock{T<:Union{Pulse, ZPulse}}(p::T) = convert(PulseBlock, p)
 PulseBlock{T<:Channel}(chans::Set{T}) = PulseBlock(Dict{Channel, Vector{Union{Pulse, ZPulse}}}(chan => Union{Pulse, ZPulse}[] for chan in chans))
@@ -149,6 +158,9 @@ PulseBlock{T<:Channel}(chans::Vector{T}) = PulseBlock(Dict{Channel, Vector{Union
 
 promote_rule(::Type{Pulse}, ::Type{PulseBlock}) = PulseBlock
 promote_rule(::Type{ZPulse}, ::Type{PulseBlock}) = PulseBlock
+# NOTE missing a promote_rule for Pulse and ZPulse
+# Then to get some benefit of this, you need to call `promote` below, i.e.:
+# ⊗(x::AbstractPulse, y::AbstractPulse) = ⊗(promote(x,y)...)
 ⊗(x::Pulse, y::Pulse) = ⊗(PulseBlock(x), PulseBlock(y))
 ⊗(x::Pulse, y::PulseBlock) = ⊗(PulseBlock(x), y)
 ⊗(x::PulseBlock, y::Pulse) = ⊗(x, PulseBlock(y))
