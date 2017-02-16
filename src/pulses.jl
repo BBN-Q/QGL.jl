@@ -38,8 +38,8 @@ function Pulse(
 	filter!((k,v) -> k == :shape_function || k in kwargs, shape_params)
 
 	# precompute pulse hash we'll evaluate it for each pulse we compile
-	pulse_hash = hash(label, hash(chan, hash(length, hash(amp, hash(phase, hash(frequency, hash(shape_params)))))))
-	Pulse(label, chan, Float64(length), Float64(amp), Float64(phase), Float64(frequency), shape_params, pulse_hash)
+	pulse_hash = hash((label, chan, length, amp, phase, frequency, shape_params))
+	Pulse(label, chan, length, amp, phase, frequency, shape_params, pulse_hash)
 end
 
 ==(a::Pulse, b::Pulse) = a.hash == b.hash
