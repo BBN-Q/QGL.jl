@@ -93,23 +93,20 @@ Id(c::Channel) = Id(c, c.shape_params[:length])
 
 
 function AC(q::Qubit, num)
-
-	# NOTE what are you getting by making this a dictionary?
 	pulses = [
-		q -> Id(q),
-		q -> X90(q),
-		q -> X(q),
-		q -> X90m(q),
-		q -> Y90(q),
-		q -> Y(q),
-		q -> Y90m(q),
-		q -> Z90(q),
-		q -> Z(q),
-		q -> Z90m(q)
+		Id,
+		X90,
+		X,
+		X90m,
+		Y90,
+		Y,
+		Y90m,
+		Z90,
+		Z,
+		Z90m
 	]
 
 	return pulses[num](q)
-
 end
 
 """
