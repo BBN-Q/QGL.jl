@@ -8,8 +8,9 @@ export X90, X, X90m, Y90, Y, Y90m, U90, Uθ, Z90, Z, Z90m, Id, ⊗, MEAS, AC, Di
 #       * immutable Pulse
 #       * immutable ZPulse
 #   - type PulseBlock
+@compat abstract type AbstractPulse end
 
-immutable Pulse
+immutable Pulse <: AbstractPulse
 	label::String
 	channel::Channel
 	length::Float64
@@ -54,11 +55,13 @@ hash(p::Pulse, h::UInt) = hash(p.hash, h)
 
 show(io::IO, p::Pulse) = print(io, "$(p.label)($(p.channel.label))")
 
-immutable ZPulse
+immutable ZPulse <: AbstractPulse
 	label::String
 	channel::Channel
 	angle::Float64
 end
+
+show(io::IO, z::ZPulse) = print(io, "$(z.label)($(z.channel.label), $(z.angle))")
 
 # loop through and eval to  create some basic 90/180 pulses
 # quote the pi2Amp/piAmp symbols to interpolate the symbol
@@ -81,8 +84,6 @@ Z(q::Union{Qubit, Edge}, angle=0.5) = ZPulse("Z", q, angle)
 Z90(q::Union{Qubit, Edge}) = ZPulse("Z90", q, 0.25)
 Z90m(q::Union{Qubit, Edge}) = ZPulse("Z90m", q, 0.75)
 length(z::ZPulse) = 0
-
-show(io::IO, z::ZPulse) = print(io, "$(z.label)($(z.channel.label), $(z.angle))")
 
 function Id(c::Channel, length)
 	# TODO: inject constant pulse shape
@@ -147,28 +148,20 @@ function DiAC(q::Qubit, num)
 end
 
 type PulseBlock
-	pulses::Dict{Channel, Vector{Union{Pulse, ZPulse}}}
+	pulses::Dict{Channel, Vector{AbstractPulse}}
 end
 
-# NOTE all these unions suggest the need for an AbstractPulse type
-convert{T<:Union{Pulse, ZPulse}}(::Type{PulseBlock}, p::T) = PulseBlock(Dict(p.channel => [p]))
-PulseBlock{T<:Union{Pulse, ZPulse}}(p::T) = convert(PulseBlock, p)
-PulseBlock{T<:Channel}(chans::Set{T}) = PulseBlock(Dict{Channel, Vector{Union{Pulse, ZPulse}}}(chan => Union{Pulse, ZPulse}[] for chan in chans))
-PulseBlock{T<:Channel}(chans::Vector{T}) = PulseBlock(Dict{Channel, Vector{Union{Pulse, ZPulse}}}(chan => Union{Pulse, ZPulse}[] for chan in chans))
+convert(::Type{PulseBlock}, p::AbstractPulse) = PulseBlock(Dict(p.channel => [p]))
+PulseBlock(p::AbstractPulse) = convert(PulseBlock, p)
+PulseBlock{T<:Channel}(chans::Set{T}) = PulseBlock(Dict(chan => AbstractPulse[] for chan in chans))
+PulseBlock{T<:Channel}(chans::Vector{T}) = PulseBlock(Dict(chan => AbstractPulse[] for chan in chans))
 
-promote_rule(::Type{Pulse}, ::Type{PulseBlock}) = PulseBlock
-promote_rule(::Type{ZPulse}, ::Type{PulseBlock}) = PulseBlock
-# NOTE missing a promote_rule for Pulse and ZPulse
-# Then to get some benefit of this, you need to call `promote` below, i.e.:
-# ⊗(x::AbstractPulse, y::AbstractPulse) = ⊗(promote(x,y)...)
-⊗(x::Pulse, y::Pulse) = ⊗(PulseBlock(x), PulseBlock(y))
-⊗(x::Pulse, y::PulseBlock) = ⊗(PulseBlock(x), y)
-⊗(x::PulseBlock, y::Pulse) = ⊗(x, PulseBlock(y))
-⊗(x::ZPulse, y::ZPulse) = ⊗(PulseBlock(x), PulseBlock(y))
-⊗(x::ZPulse, y::PulseBlock) = ⊗(PulseBlock(x), y)
-⊗(x::PulseBlock, y::ZPulse) = ⊗(x, PulseBlock(y))
-⊗(x::Pulse, y::ZPulse) = ⊗(PulseBlock(x), PulseBlock(y))
+promote_rule(::Type{AbstractPulse}, ::Type{PulseBlock}) = PulseBlock
+
+⊗(x::AbstractPulse, y::AbstractPulse) = PulseBlock(x) ⊗ PulseBlock(y)
 ⊗(x::PulseBlock, y::PulseBlock) = PulseBlock(merge(x.pulses, y.pulses))
+⊗(x::AbstractPulse, y::PulseBlock) = ⊗(promote(x,y)...)
+⊗(x::PulseBlock, y::AbstractPulse) = ⊗(promote(x,y)...)
 
 channels(pb::PulseBlock) = keys(pb.pulses)
 
