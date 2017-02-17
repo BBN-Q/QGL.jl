@@ -9,7 +9,7 @@ immutable ControlFlow
 	value
 end
 
-wait() = ControlFlow("INIT", WAIT, 0, 0)
+wait() = ControlFlow("WAIT", WAIT, 0, 0)
 sync() = ControlFlow("SYNC", SYNC, 0, 0)
 goto(target) = ControlFlow("GOTO", GOTO, target, 0)
 
