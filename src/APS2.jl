@@ -1,6 +1,8 @@
 # translator for the APS2
 module APS2
 
+import Base: convert
+
 using HDF5
 
 import QGL
@@ -33,7 +35,7 @@ const MODULATOR = 0x0a
 const LOAD_CMP = 0x0b
 const PREFETCH = 0x0c
 
-typealias APS2Instruction UInt64
+const APS2Instruction = UInt64
 
 immutable Waveform
 	address::UInt32
