@@ -4,7 +4,7 @@ export Qubit, Edge, Marker
 
 import .config.get_channel_params
 
-abstract Channel
+@compat abstract type Channel end
 show(io::IO, c::Channel) = print(io, c.label)
 
 # TODO: is there a benefit to having the concrete channel types immutable?
@@ -64,6 +64,7 @@ function Marker(label)
 	Marker(label, phys_chan, shape_params)
 end
 
+# NOTE is this mutable on purpose??
 type QuadratureAWGChannel
 	awg::String
 	delay::Real
