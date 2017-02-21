@@ -4,6 +4,7 @@ module APS2
 using HDF5
 
 import QGL
+import JSON
 
 const DAC_CLOCK = 1.2e9
 const FPGA_CLOCK = 300e6
@@ -312,6 +313,18 @@ function write_to_file(filename, instrs, wfs)
 		for wf in wfs
 			wf_vec[idx:idx+length(wf)-1] = wf
 			idx += length(wf)
+		end
+	end
+
+	let cfg_folder = joinpath(Pkg.dir("QGL"), "cfg"), cfg_file = joinpath(cfg_folder, "cfg.json")
+		#save in default sequence path if defined
+		if isdir(cfg_folder) && isfile(cfg_file)
+			APS_dir = JSON.parsefile(cfg_file)["APS_dir"]
+			seq_dir = filename[1:match(r"-", filename).offset-1]
+			if ~ispath(joinpath(APS_dir, seq_dir))
+				mkdir(joinpath(APS_dir,seq_dir))
+			end
+			filename = joinpath(APS_dir, seq_dir, filename)
 		end
 	end
 
