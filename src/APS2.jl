@@ -261,7 +261,12 @@ function create_instrs(seqs, wf_lib, chans, chan_freqs)
 							time_stamp[ct] += wf.count+1
 						elseif typeof(next_entry) == QGL.ZPulse
 							# round phase to 28 bit integer
-							push!(instrs, modulation_instr(UPDATE_FRAME, nco_select[next_entry.channel], round(Int32, mod(-next_entry.angle, 1) * 2^28 )) )
+							fixed_pt_phase = round(Int32, mod(-next_entry.angle, 1) * 2^28 )
+							push!(instrs, modulation_instr(UPDATE_FRAME, nco_select[next_entry.channel], fixed_pt_phase)
+							# if the Z pulse is the first thing after a WAIT then we need to inject it before the WAIT
+							if ((instrs[end-1] >> 60) && 0xff) == WAIT
+								instrs[[end-1,end]] = instrs[[end, end-1]]
+							end
 						else
 							error("Untranslated pulse block entry")
 						end
