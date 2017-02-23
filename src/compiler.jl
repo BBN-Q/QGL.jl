@@ -80,8 +80,22 @@ function add_slave_trigger!(seq, slave_trig_chan)
 	slave_trig = Pulse("TRIG", slave_trig_chan, slave_trig_chan.shape_params[:length], 1.0)
 	for (ct,e) in enumerate(seq)
 		if e == wait_entry
-			# try to add to next entry
-			seq[ct+1] = slave_trig ⊗ seq[ct+1]
+			# try to add to next entry with non-zero length
+			ct2 = 1
+			while true
+				if length(seq[ct+ct2]) > 0
+					seq[ct+ct2] = slave_trig ⊗ seq[ct+ct2]
+					break
+				elseif (typeof(seq[ct+ct2]) == ControlFlow)
+					# if we've hit another ControlFlow we'll just have to inject
+					insert!(seq, ct+ct2, slave_trig)
+					break
+				end
+				ct2 += 1
+				if ct+ct2 > length(seq)
+					error("Could not find a place to add slave trigger")
+				end
+			end
 		end
 	end
 end
