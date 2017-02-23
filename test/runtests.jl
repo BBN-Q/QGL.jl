@@ -11,8 +11,16 @@ end
 if !isdir(cfg_folder)
 	mkdir(cfg_folder)
 end
+sequence_files_dir = joinpath(dirname(@__FILE__), "sequence_files")
+if !isdir(sequence_files_dir)
+	mkdir(sequence_files_dir)
+end
 open(cfg_file, "w") do f
-	JSON.print(f, Dict{String,String}("channel_params_file" => joinpath(dirname(@__FILE__), "ChannelParams.json")))
+	cfg = Dict{String,String}()
+	cfg["channel_params_file"] = joinpath(dirname(@__FILE__), "ChannelParams.json")
+	cfg["instrument_params_file"] = joinpath(dirname(@__FILE__), "Instruments.json")
+	cfg["sequence_files_dir"] = sequence_files_dir
+	JSON.print(f, cfg)
 end
 
 using QGL

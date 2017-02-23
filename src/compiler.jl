@@ -1,5 +1,7 @@
 import Base: show, push!
 
+import .config.get_channel_params
+
 export compile_to_hardware
 
 immutable Event
@@ -44,7 +46,7 @@ function compile_to_hardware{T}(seq::Vector{T}, base_filename; suffix="")
 	seqs, pulses, chans = compile(seq)
 
 	# normalize and inject the channel delays
-	channel_params = JSON.parsefile(channel_json_file)["channelDict"]
+	channel_params = get_channel_params()
 	chan_delays = Dict(chan => channel_params[chan.awg_channel]["delay"] for chan in chans)
 	normalize_channel_delays!(chan_delays)
 	inject_channel_delays!(seqs, pulses, chan_delays)
