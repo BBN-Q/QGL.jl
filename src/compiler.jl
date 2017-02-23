@@ -205,6 +205,8 @@ end
 
 function inject_channel_delays!(seqs, pulses, chan_delays)
 
+	all(map(x -> x == 0, values(chan_delays))) && return
+
 	delay_block = PulseBlock(collect(keys(chan_delays)))
 
 	for (c,d) in chan_delays
