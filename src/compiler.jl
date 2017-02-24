@@ -1,6 +1,7 @@
 import Base: show, push!
 
 import .config.get_channel_params
+import .config.get_instrument_params
 
 export compile_to_hardware
 
@@ -47,7 +48,14 @@ function compile_to_hardware{T}(seq::Vector{T}, base_filename; suffix="")
 
 	# normalize and inject the channel delays
 	channel_params = get_channel_params()
-	chan_delays = Dict(chan => channel_params[chan.awg_channel]["delay"] for chan in chans)
+	instr_params = get_instrument_params()
+	chan_delays = Dict{Channel, Float64}()
+	for chan in chans
+		# delays are shifted by AWG delay too
+		chan_awg = channel_params[chan.awg_channel]["instrument"]
+		awg_delay = instr_params[chan_awg]["delay"]
+		chan_delays[chan] = channel_params[chan.awg_channel]["delay"] + awg_delay
+	end
 	normalize_channel_delays!(chan_delays)
 	inject_channel_delays!(seqs, pulses, chan_delays)
 
@@ -55,8 +63,9 @@ function compile_to_hardware{T}(seq::Vector{T}, base_filename; suffix="")
 	AWGs = Dict{String, Dict}()
 	chan_str_map = Dict("12"=>:ch12, "12m1"=>:m1, "12m2"=>:m2, "12m3"=>:m3, "12m4"=>:m4)
 	for chan in chans
-		# look up AWG and channel from convention of AWG-chan
-		(awg, chan_str) = split(chan.awg_channel, '-')
+		awg = channel_params[chan.awg_channel]["instrument"]
+		# get channel string from AWG-chstr convention
+		chan_str = split(chan.awg_channel, '-')[2]
 		# TODO: map is currently only for APS2 - should be looked up from somewhere
 		# there can be multiple logical channels mapped to the same physical channel
 		if haskey(AWGs, awg) && haskey(AWGs[awg], chan_str_map[chan_str])
