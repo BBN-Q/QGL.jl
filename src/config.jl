@@ -8,7 +8,7 @@ import JSON
 
 channel_json_file = ""
 instrument_json_file = ""
-sequence_files_dir = ""
+sequence_files_path = ""
 
 cfg_folder = joinpath(Pkg.dir("QGL"), "cfg")
 cfg_file = joinpath(cfg_folder, "cfg.json")
@@ -17,14 +17,14 @@ if isdir(cfg_folder) && isfile(cfg_file)
 	cfg = JSON.parsefile(cfg_file)
 	channel_json_file = cfg["channel_params_file"]
 	instrument_json_file = cfg["instrument_params_file"]
-	sequence_files_dir = cfg["sequence_files_dir"]
+	sequence_files_path = cfg["sequence_files_path"]
 else
 	println("Please provide path to channel parameters JSON file:")
 	channel_json_file = chomp(readline())
 	println("Please provide path to instrument parameters JSON file:")
 	instrument_json_file = chomp(readline())
 	println("Please provide path to where sequence files should be output to:")
-	sequence_files_dir = chomp(readline())
+	sequence_files_path = chomp(readline())
 
 	if !isdir(cfg_folder)
 		mkdir(cfg_folder)
@@ -34,7 +34,7 @@ else
 			Dict{String,String}(
 				"channel_params_file" => channel_json_file,
 				"instrument_params_file" => instrument_json_file,
-				"sequence_files_dir" => sequence_files_dir
+				"sequence_files_path" => sequence_files_path
 			)
 		)
 	end
