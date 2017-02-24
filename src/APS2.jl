@@ -324,7 +324,12 @@ function write_to_file(filename, instrs, wfs)
 
 	#prepend the sequence directory
 	seq_name_dir = filename[1:match(r"-", filename).offset-1]
-	filename = joinpath(config.sequence_files_dir, seq_name_dir, filename)
+	seq_path = joinpath(config.sequence_files_path, seq_name_dir)
+	# create the sequence directory if necessary
+	if !isdir(seq_path)
+		mkpath(seq_path)
+	end
+	filename = joinpath(seq_path, filename)
 
 	h5open(filename, "w") do f
 		attrs(f)["Version"] = 4.0
