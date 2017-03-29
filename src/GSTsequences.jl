@@ -5,11 +5,11 @@ create_1Q_GST_seqs(file, q; Id_length=50e-9, num_cals=500)
 
 file	 : path to csv file
 q		 : name of qubit in scope
-Id_length : length of the Id pulse in seconds
+Id_length : length of the null {} pulse in seconds this is typically 0
 num_cals	 : number of calibration sequences for 0 and 1
 
 """
-function create_1Q_GST_seqs(file, q; Id_length=50e-9, num_cals=500)
+function create_1Q_GST_seqs(file, q; Id_length=0, num_cals=500)
 
 	# create pulses once in a library
 	m = MEAS(q)
@@ -38,10 +38,10 @@ create_1Q_GST_seqs(file::Array{String,1}, q; Id_length=50e-9, num_cals=500)
 
 file	 : a string array with the paths to multiple csv files
 q		 : name of qubit in scope
-Id_length : length of the Id pulse in seconds
+Id_length : length of the null {} pulse in seconds this is typically 0
 num_cals	 : number of calibration sequences for 0 and 1
 """
-function create_1Q_GST_seqs(file::Array{String, 1}, q; Id_length=50e-9,
+function create_1Q_GST_seqs(file::Array{String, 1}, q; Id_length=0,
 	num_cals=500)
 
 	# create pulses once in a library
@@ -74,10 +74,10 @@ create_1Q_GST10_seqs(file, q; Id_length=50e-9, num_cals=500)
 
 file	 : path to csv file
 q		 : name of qubit in scope
-Id_length : length of the Id pulse in seconds
+Id_length : length of the null {} pulse in seconds this is typically 0
 num_cals	 : number of calibration sequences for 0 and 1
 """
-function create_1Q_GST10_seqs(file, q; Id_length=50e-9, num_cals=500)
+function create_1Q_GST10_seqs(file, q; Id_length=0, num_cals=500)
 
 	# create pulses once in a library
 	m = MEAS(q)
