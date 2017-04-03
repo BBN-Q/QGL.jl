@@ -1,9 +1,12 @@
 import Base: show, push!
 
+import .config.get_channel_params
+import .config.get_instrument_params
+
 export compile_to_hardware
 
 immutable Event
-	label::AbstractString
+	label::String
 end
 
 SequenceEntry = Union{Pulse, PulseBlock, ZPulse, ControlFlow, Event}
@@ -44,8 +47,15 @@ function compile_to_hardware{T}(seq::Vector{T}, base_filename; suffix="")
 	seqs, pulses, chans = compile(seq)
 
 	# normalize and inject the channel delays
-	channel_params = JSON.parsefile(channel_json_file)["channelDict"]
-	chan_delays = Dict(chan => channel_params[chan.awg_channel]["delay"] for chan in chans)
+	channel_params = get_channel_params()
+	instr_params = get_instrument_params()
+	chan_delays = Dict{Channel, Float64}()
+	for chan in chans
+		# delays are shifted by AWG delay too
+		chan_awg = channel_params[chan.awg_channel]["instrument"]
+		awg_delay = instr_params[chan_awg]["delay"]
+		chan_delays[chan] = channel_params[chan.awg_channel]["delay"] + awg_delay
+	end
 	normalize_channel_delays!(chan_delays)
 	inject_channel_delays!(seqs, pulses, chan_delays)
 
@@ -53,8 +63,9 @@ function compile_to_hardware{T}(seq::Vector{T}, base_filename; suffix="")
 	AWGs = Dict{String, Dict}()
 	chan_str_map = Dict("12"=>:ch12, "12m1"=>:m1, "12m2"=>:m2, "12m3"=>:m3, "12m4"=>:m4)
 	for chan in chans
-		# look up AWG and channel from convention of AWG-chan
-		(awg, chan_str) = split(chan.awg_channel, '-')
+		awg = channel_params[chan.awg_channel]["instrument"]
+		# get channel string from AWG-chstr convention
+		chan_str = split(chan.awg_channel, '-')[2]
 		# TODO: map is currently only for APS2 - should be looked up from somewhere
 		# there can be multiple logical channels mapped to the same physical channel
 		if haskey(AWGs, awg) && haskey(AWGs[awg], chan_str_map[chan_str])
@@ -80,8 +91,22 @@ function add_slave_trigger!(seq, slave_trig_chan)
 	slave_trig = Pulse("TRIG", slave_trig_chan, slave_trig_chan.shape_params[:length], 1.0)
 	for (ct,e) in enumerate(seq)
 		if e == wait_entry
-			# try to add to next entry
-			seq[ct+1] = slave_trig ⊗ seq[ct+1]
+			# try to add to next entry with non-zero length
+			ct2 = 1
+			while true
+				if length(seq[ct+ct2]) > 0
+					seq[ct+ct2] = slave_trig ⊗ seq[ct+ct2]
+					break
+				elseif (typeof(seq[ct+ct2]) == ControlFlow)
+					# if we've hit another ControlFlow we'll just have to inject
+					insert!(seq, ct+ct2, slave_trig)
+					break
+				end
+				ct2 += 1
+				if ct+ct2 > length(seq)
+					error("Could not find a place to add slave trigger")
+				end
+			end
 		end
 	end
 end
@@ -191,6 +216,8 @@ end
 
 function inject_channel_delays!(seqs, pulses, chan_delays)
 
+	all(map(x -> x == 0, values(chan_delays))) && return
+
 	delay_block = PulseBlock(collect(keys(chan_delays)))
 
 	for (c,d) in chan_delays
@@ -208,21 +235,28 @@ function inject_channel_delays!(seqs, pulses, chan_delays)
 	end
 end
 
+""" Append a Pulse to a specific channel in a PulseBlock """
+function push_channel!(pb::PulseBlock, p::Pulse, pulses, paddings)
+	length(p) == 0.0 && return 	# elide zero-length pulses
+	apply_padding!(p.channel, pb, paddings, pulses)
+	push!(pb.pulses[p.channel], p)
+	push!(pulses[p.channel], p)
+end
 
+""" Append a ZPulse to a specific channel in a PulseBlock """
+function push_channel!(pb::PulseBlock, zp::ZPulse, pulses, paddings)
+	zp.angle == 0.0 && return 	# elide noop Z pulses
+	apply_padding!(zp.channel, pb, paddings, pulses)
+	push!(pb.pulses[zp.channel], zp)
+end
+
+""" Concatenate two PulseBlocks """
 function push!(pb_cur::PulseBlock, pb_new::PulseBlock, pulses, paddings)
 	pb_new_length = length(pb_new)
 	for chan in channels(pb_cur)
 		if chan in channels(pb_new)
-			apply_padding!(chan, pb_cur, paddings, pulses)
 			for p in pb_new.pulses[chan]
-				#elide zero-length Pulses
-				if typeof(p) == Pulse && length(p) == 0
-					continue
-				end
-				push!(pb_cur.pulses[chan], p)
-				if typeof(p) == Pulse
-					push!(pulses[chan], p)
-				end
+				push_channel!(pb_cur, p, pulses, paddings)
 			end
 			paddings[chan] += pb_new_length - sum(length(p) for p in pb_new.pulses[chan])
 		else
@@ -231,19 +265,21 @@ function push!(pb_cur::PulseBlock, pb_new::PulseBlock, pulses, paddings)
 	end
 end
 
-function push!{T<:Union{Pulse, ZPulse}}(pb_cur::PulseBlock, p::T, pulses, paddings)
+""" Append a Pulse to a PulseBlock """
+function push!(pb_cur::PulseBlock, p::Pulse, pulses, paddings)
+	length(p) == 0.0 && return 	# elide zero-length pulses
+	# push pulse onto appropriate channel and pad the other channels
 	for chan in channels(pb_cur)
 		if chan == p.channel
-			apply_padding!(chan, pb_cur, paddings, pulses)
-			push!(pb_cur.pulses[chan], p)
-			if typeof(p) == Pulse
-				push!(pulses[chan], p)
-			end
+			push_channel!(pb_cur, p, pulses, paddings)
 		else
 			paddings[chan] += length(p)
 		end
 	end
 end
+
+""" Append a ZPulse to a PulseBlock """
+push!(pb_cur::PulseBlock, zp::ZPulse, pulses, paddings) =	push_channel!(pb_cur, zp, pulses, paddings)
 
 function apply_padding!(chan, pb, paddings, pulses)
 	if paddings[chan] > 1e-16 #arbitrarily eps for Float64 relative to 1.0

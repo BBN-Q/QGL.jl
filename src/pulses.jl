@@ -2,7 +2,15 @@ import Base: convert, promote_rule, length, ==
 
 export X90, X, X90m, Y90, Y, Y90m, U90, Uθ, Z90, Z, Z90m, Id, ⊗, MEAS, AC, DiAC, ZX90
 
-immutable Pulse
+# NOTE A suggested type hierarchy:
+# abstract AbstractBlock
+#   - abstract AbstractPulse
+#       * immutable Pulse
+#       * immutable ZPulse
+#   - type PulseBlock
+@compat abstract type AbstractPulse end
+
+immutable Pulse <: AbstractPulse
 	label::String
 	channel::Channel
 	length::Float64
@@ -38,8 +46,8 @@ function Pulse(
 	filter!((k,v) -> k == :shape_function || k in kwargs, shape_params)
 
 	# precompute pulse hash we'll evaluate it for each pulse we compile
-	pulse_hash = hash(label, hash(chan, hash(length, hash(amp, hash(phase, hash(frequency, hash(shape_params)))))))
-	Pulse(label, chan, Float64(length), Float64(amp), Float64(phase), Float64(frequency), shape_params, pulse_hash)
+	pulse_hash = hash((label, chan, length, amp, phase, frequency, shape_params))
+	Pulse(label, chan, length, amp, phase, frequency, shape_params, pulse_hash)
 end
 
 ==(a::Pulse, b::Pulse) = a.hash == b.hash
@@ -47,11 +55,13 @@ hash(p::Pulse, h::UInt) = hash(p.hash, h)
 
 show(io::IO, p::Pulse) = print(io, "$(p.label)($(p.channel.label))")
 
-immutable ZPulse
+immutable ZPulse <: AbstractPulse
 	label::String
 	channel::Channel
 	angle::Float64
 end
+
+show(io::IO, z::ZPulse) = print(io, "$(z.label)($(z.channel.label), $(z.angle))")
 
 # loop through and eval to  create some basic 90/180 pulses
 # quote the pi2Amp/piAmp symbols to interpolate the symbol
@@ -75,8 +85,6 @@ Z90(q::Union{Qubit, Edge}) = ZPulse("Z90", q, 0.25)
 Z90m(q::Union{Qubit, Edge}) = ZPulse("Z90m", q, 0.75)
 length(z::ZPulse) = 0
 
-show(io::IO, z::ZPulse) = print(io, "$(z.label)($(z.channel.label), $(z.angle))")
-
 function Id(c::Channel, length)
 	# TODO: inject constant pulse shape
 	Pulse("Id", c, length, 0.0)
@@ -89,23 +97,25 @@ Id(c::Channel) = Id(c, c.shape_params[:length])
 Atomic Clifford `num` on a single qubit `q`. AC pulses are enumerated 1:24.
 """
 function AC(q::Qubit, num; sampling_rate=1.2e9)
-	if 0 < num <= 12
+	if 0 < num < 10
 		pulses = [
-			q -> Id(q),
-			q -> X90(q),
-			q -> X(q),
-			q -> X90m(q),
-			q -> Y90(q),
-			q -> Y(q),
-			q -> Y90m(q),
-			q -> Z90(q),
-			q -> Z(q),
-			q -> Z90m(q),
-			q -> U90(q, 1/8),
-			q -> U90(q, -1/8)
+			Id,
+			X90,
+			X,
+			X90m,
+			Y90,
+			Y,
+			Y90m,
+			Z90,
+			Z,
+			Z90m,
 		]
 		return pulses[num](q)
-	elseif num<=24
+	elseif num == 11
+		return U90(q, 1/8);
+	elseif num == 12
+		return U90(q, -1/8)
+	elseif num <= 24
 		# figure out the approximate nutation frequency calibration from the X180
 		# and the sampling_rate.  This isn't ideal as it breaks the split between
 		# the pulse and the hardware representation
@@ -152,6 +162,7 @@ function AC(q::Qubit, num; sampling_rate=1.2e9)
 	else
 		error("Invalid single qubit Atomic Clifford number")
 	end
+
 end
 
 """
@@ -190,24 +201,20 @@ function DiAC(q::Qubit, num)
 end
 
 type PulseBlock
-	pulses::Dict{Channel, Vector{Union{Pulse, ZPulse}}}
+	pulses::Dict{Channel, Vector{AbstractPulse}}
 end
 
-convert{T<:Union{Pulse, ZPulse}}(::Type{PulseBlock}, p::T) = PulseBlock(Dict(p.channel => [p]))
-PulseBlock{T<:Union{Pulse, ZPulse}}(p::T) = convert(PulseBlock, p)
-PulseBlock{T<:Channel}(chans::Set{T}) = PulseBlock(Dict{Channel, Vector{Union{Pulse, ZPulse}}}(chan => Union{Pulse, ZPulse}[] for chan in chans))
-PulseBlock{T<:Channel}(chans::Vector{T}) = PulseBlock(Dict{Channel, Vector{Union{Pulse, ZPulse}}}(chan => Union{Pulse, ZPulse}[] for chan in chans))
+convert(::Type{PulseBlock}, p::AbstractPulse) = PulseBlock(Dict(p.channel => [p]))
+PulseBlock(p::AbstractPulse) = convert(PulseBlock, p)
+PulseBlock{T<:Channel}(chans::Set{T}) = PulseBlock(Dict(chan => AbstractPulse[] for chan in chans))
+PulseBlock{T<:Channel}(chans::Vector{T}) = PulseBlock(Dict(chan => AbstractPulse[] for chan in chans))
 
-promote_rule(::Type{Pulse}, ::Type{PulseBlock}) = PulseBlock
-promote_rule(::Type{ZPulse}, ::Type{PulseBlock}) = PulseBlock
-⊗(x::Pulse, y::Pulse) = ⊗(PulseBlock(x), PulseBlock(y))
-⊗(x::Pulse, y::PulseBlock) = ⊗(PulseBlock(x), y)
-⊗(x::PulseBlock, y::Pulse) = ⊗(x, PulseBlock(y))
-⊗(x::ZPulse, y::ZPulse) = ⊗(PulseBlock(x), PulseBlock(y))
-⊗(x::ZPulse, y::PulseBlock) = ⊗(PulseBlock(x), y)
-⊗(x::PulseBlock, y::ZPulse) = ⊗(x, PulseBlock(y))
-⊗(x::Pulse, y::ZPulse) = ⊗(PulseBlock(x), PulseBlock(y))
+promote_rule{T<:AbstractPulse}(::Type{T}, ::Type{PulseBlock}) = PulseBlock
+
+⊗(x::AbstractPulse, y::AbstractPulse) = PulseBlock(x) ⊗ PulseBlock(y)
 ⊗(x::PulseBlock, y::PulseBlock) = PulseBlock(merge(x.pulses, y.pulses))
+⊗(x::AbstractPulse, y::PulseBlock) = ⊗(promote(x,y)...)
+⊗(x::PulseBlock, y::AbstractPulse) = ⊗(promote(x,y)...)
 
 channels(pb::PulseBlock) = keys(pb.pulses)
 

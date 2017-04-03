@@ -1,5 +1,7 @@
 module QGL
+using Compat
 
+include("config.jl")
 include("channels.jl")
 include("pulses.jl")
 include("pulseshapes.jl")

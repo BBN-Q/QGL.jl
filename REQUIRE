@@ -1,3 +1,4 @@
 julia 0.5
 HDF5
 JSON
+Compat

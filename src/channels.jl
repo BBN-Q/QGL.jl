@@ -1,37 +1,10 @@
-import JSON
-
 import Base: show, ==, hash
 
 export Qubit, Edge, Marker
 
-channel_json_file = ""
-let cfg_folder = joinpath(Pkg.dir("QGL"), "cfg"), cfg_file = joinpath(cfg_folder, "cfg.json")
-	if isdir(cfg_folder) && isfile(cfg_file)
-		global channel_json_file = JSON.parsefile(cfg_file)["channel_params_file"]
-	else
-		println("Please provide path to channel parameters JSON file:")
-		channel_json_file = chomp(readline())
-		if !isdir(cfg_folder)
-			mkdir(cfg_folder)
-		end
-		open(cfg_file, "w") do f
-			JSON.print(f, Dict{String,String}("channel_params_file" => channel_json_file))
-		end
-	end
-end
+import .config.get_channel_params
 
-# TODO: is this useful or perhaps all we can do with immutable channel objects
-# watch the channel JSON file
-# @async begin
-# 	while true
-# 		event = watch_file("/home/cryan/Programming/Repos/PyQLab/cfg/ChannelParams.json")
-# 		if event.changed
-# 			warn("ChannelParams file updated.")
-# 	end
-# end
-
-
-abstract Channel
+@compat abstract type Channel end
 show(io::IO, c::Channel) = print(io, c.label)
 
 # TODO: is there a benefit to having the concrete channel types immutable?
@@ -47,7 +20,7 @@ immutable Qubit <: Channel
 end
 
 function Qubit(label)
-	channel_params = JSON.parsefile(channel_json_file)["channelDict"]
+	channel_params = get_channel_params()
 
 	if label in keys(channel_params)
 		q_params = channel_params[label]
@@ -83,7 +56,7 @@ immutable Marker <: Channel
 end
 
 function Marker(label)
-	m_params = JSON.parsefile(channel_json_file)["channelDict"][label]
+	m_params = get_channel_params()[label]
 	phys_chan = get(m_params, "physChan", "")
 	# translate pulse function in shape params from a string to a function handle and snakeify key
 	shape_params =  Dict{Symbol, Any}(Symbol(k) => v for (k,v) in m_params["pulseParams"])
@@ -91,6 +64,7 @@ function Marker(label)
 	Marker(label, phys_chan, shape_params)
 end
 
+# NOTE is this mutable on purpose??
 type QuadratureAWGChannel
 	awg::String
 	delay::Real
@@ -121,7 +95,7 @@ M-q.label convention.
 """
 function measurement_channel(q::Qubit)
 	m_label = "M-"*q.label
-	m_params = JSON.parsefile(channel_json_file)["channelDict"][m_label]
+	m_params = get_channel_params()[m_label]
 	phys_chan = get(m_params, "physChan", "")
 	gate_chan = get(m_params, "gateChan", "")
 	trig_chan = get(m_params, "trigChan", "")
@@ -154,7 +128,7 @@ Create the edge representing interaction drive from `source` to `target`.
 """
 function Edge(source::Qubit, target::Qubit)
 	# look up whether we have an edge connecting source -> target
-	channel_params = JSON.parsefile(channel_json_file)["channelDict"]
+	channel_params = get_channel_params()
 
 	edges = filter(
 		(k,v) -> get(v, "x__class__", "") == "Edge" && v["source"] == source.label && v["target"] == target.label,
