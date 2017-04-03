@@ -1,4 +1,5 @@
 module QGL
+using Compat
 
 include("config.jl")
 include("channels.jl")

@@ -6,7 +6,7 @@ import .config.get_instrument_params
 export compile_to_hardware
 
 immutable Event
-	label::AbstractString
+	label::String
 end
 
 SequenceEntry = Union{Pulse, PulseBlock, ZPulse, ControlFlow, Event}
