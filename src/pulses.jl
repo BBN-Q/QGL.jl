@@ -153,7 +153,7 @@ PulseBlock(p::AbstractPulse) = convert(PulseBlock, p)
 PulseBlock{T<:Channel}(chans::Set{T}) = PulseBlock(Dict(chan => AbstractPulse[] for chan in chans))
 PulseBlock{T<:Channel}(chans::Vector{T}) = PulseBlock(Dict(chan => AbstractPulse[] for chan in chans))
 
-promote_rule(::Type{AbstractPulse}, ::Type{PulseBlock}) = PulseBlock
+promote_rule{T<:AbstractPulse}(::Type{T}, ::Type{PulseBlock}) = PulseBlock
 
 ⊗(x::AbstractPulse, y::AbstractPulse) = PulseBlock(x) ⊗ PulseBlock(y)
 ⊗(x::PulseBlock, y::PulseBlock) = PulseBlock(merge(x.pulses, y.pulses))
