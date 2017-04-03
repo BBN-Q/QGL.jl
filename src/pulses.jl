@@ -94,7 +94,7 @@ Id(c::Channel) = Id(c, c.shape_params[:length])
 """
 	AC(q::Qubit, num; sampling_rate=1.2e9)
 
-Atomic Clifford `num` on a single qubit `q`. AC pulses are enumerated 1:24.
+Atomic Clifford `num` on a single qubit `q`. AC pulses are enumerated 0:24.
 """
 function AC(q::Qubit, num; sampling_rate=1.2e9)
 	if 0 < num < 10
