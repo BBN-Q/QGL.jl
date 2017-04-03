@@ -77,6 +77,7 @@ for (func, label, amp, phase) in [
 end
 
 U90(q::Qubit, phase::Float64=0.0) = Pulse("U90", q, q.shape_params[:length], 0.25, phase, 0)
+U180(q::Qubit, phase::Float64=0.0) = Pulse("U180", q, q.shape_params[:length], 0.5, phase, 0)
 Uθ(q::Union{Qubit, Edge}, length, amp, phase) = Pulse("Uθ", q, length, amp, phase)
 Uθ(q::Union{Qubit, Edge}, length, amp, phase, freq, shape_params) = Pulse("Uθ", q, length, amp, phase, freq, shape_params)
 
@@ -112,9 +113,9 @@ function AC(q::Qubit, num; sampling_rate=1.2e9)
 		]
 		return pulses[num](q)
 	elseif num == 11
-		return U90(q, 1/8);
+		return U180(q, 1/8);
 	elseif num == 12
-		return U90(q, -1/8)
+		return U180(q, -1/8)
 	elseif num <= 24
 		# figure out the approximate nutation frequency calibration from the X180
 		# and the sampling_rate.  This isn't ideal as it breaks the split between
