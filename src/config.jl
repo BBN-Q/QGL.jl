@@ -15,9 +15,9 @@ cfg_file = joinpath(cfg_folder, "cfg.json")
 
 if isdir(cfg_folder) && isfile(cfg_file)
 	cfg = JSON.parsefile(cfg_file)
-	channel_json_file = cfg["channel_params_file"]
-	instrument_json_file = cfg["instrument_params_file"]
-	sequence_files_path = cfg["sequence_files_path"]
+	channel_json_file = get(cfg, "channel_params_file", "")
+	instrument_json_file = get(cfg, "instrument_params_file", "")
+	sequence_files_path = get(cfg, "sequence_files_path", "")
 else
 	println("Please provide path to channel parameters JSON file:")
 	channel_json_file = chomp(readline())
