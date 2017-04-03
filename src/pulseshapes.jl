@@ -121,4 +121,38 @@ function CLEAR(;pulse_length=0.0, sampling_rate=1.2e9, sigma=0.0, steady_state=0
 	[meas_pulse; clear_pulse1; clear_pulse2]
 end
 
+"""
+	arb_axis_drag(;pulse_length=0.0, sampling_rate=1.2e9, nut_freq=10e6, rot_angle=0.0, polar_angle=0.0, drag_scaling=0.0)
+
+Single-qubit arbitrary axis pulse implemented with phase ramping and frame change.
+Parameters
+    nutFreq: effective nutation frequency per unit of drive amplitude (Hz)
+    rotAngle : effective rotation rotAngle (radians)
+    polarAngle : polar angle of rotation axis (radians)
+    aziAngle : azimuthal (radians)
+"""
+function arb_axis_drag(;pulse_length=0.0, sampling_rate=1.2e9, nut_freq=10e6, rot_angle=0.0, Θ=0.0, drag_scaling=0.0)::Vector{Complex128}
+	if pulse_length > 0
+		# start from a gaussian shaped pulse
+		gauss_pulse = gaussian(pulse_length=pulse_length, sampling_rate=sampling_rate)
+		# scale to achieve to the desired rotation
+		cal_scale = (rot_angle/2/pi)*sampling_rate/sum(gauss_pulse)
+		# calculate the phase ramp steps to achieve the desired Z component to the rotation axis
+		phase_steps = -2π*cos(Θ)*cal_scale*gauss_pulse/sampling_rate
+		# Calculate Z DRAG correction to phase steps
+		# β is a conversion between XY drag scaling and Z drag scaling
+		β = drag_scaling/sampling_rate
+		instantaneous_detuning = β * (2π*cal_scale*sin(Θ)*gauss_pulse).^2
+		phase_steps += instantaneous_detuning*(1/sampling_rate)
+		#center phase ramp around the middle of the pulse time steps
+		phase_ramp = cumsum(phase_steps) - phase_steps/2
+		shape = (1/nut_freq)*sin(Θ)*cal_scale*gauss_pulse.*exp(1im*phase_ramp)
+	elseif abs(Θ) <1e-10
+		#Otherwise assume we have a zero-length Z rotation
+		shape = Vector{Complex128}()
+	else
+		error("Non-zero transverse rotation with zero-length pulse.")
+	end
+	complex(shape)
+end
 end

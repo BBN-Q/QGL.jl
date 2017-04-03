@@ -76,7 +76,8 @@ for (func, label, amp, phase) in [
 	@eval $func(q) = Pulse($label, q, q.shape_params[:length], q.shape_params[$amp], $phase, 0)
 end
 
-U90(q::Qubit, phase::Float64=0.0) = Pulse("U90", q, q.shape_params[:length], 0.25, phase, 0)
+U90(q::Qubit, phase::Float64=0.0) = Pulse("U90", q, q.shape_params[:length], q.shape_params[:pi2Amp], phase, 0)
+U180(q::Qubit, phase::Float64=0.0) = Pulse("U180", q, q.shape_params[:length], q.shape_params[:piAmp], phase, 0)
 Uθ(q::Union{Qubit, Edge}, length, amp, phase) = Pulse("Uθ", q, length, amp, phase)
 Uθ(q::Union{Qubit, Edge}, length, amp, phase, freq, shape_params) = Pulse("Uθ", q, length, amp, phase, freq, shape_params)
 
@@ -91,22 +92,78 @@ function Id(c::Channel, length)
 end
 Id(c::Channel) = Id(c, c.shape_params[:length])
 
+"""
+	AC(q::Qubit, num; sampling_rate=1.2e9)
 
-function AC(q::Qubit, num)
-	pulses = [
-		Id,
-		X90,
-		X,
-		X90m,
-		Y90,
-		Y,
-		Y90m,
-		Z90,
-		Z,
-		Z90m
-	]
+Atomic Clifford `num` on a single qubit `q`. AC pulses are enumerated 0:24.
+"""
+function AC(q::Qubit, num; sampling_rate=1.2e9)
+	if 0 < num < 10
+		pulses = [
+			Id,
+			X90,
+			X,
+			X90m,
+			Y90,
+			Y,
+			Y90m,
+			Z90,
+			Z,
+			Z90m,
+		]
+		return pulses[num](q)
+	elseif num == 11
+		return U180(q, 1/8);
+	elseif num == 12
+		return U180(q, -1/8)
+	elseif num <= 24
+		# figure out the approximate nutation frequency calibration from the X180
+		# and the sampling_rate.  This isn't ideal as it breaks the split between
+		# the pulse and the hardware representation
+		Xp = X(q)
+		xpulse = waveform(Xp, sampling_rate)
+		nut_freq = 0.5/sum(xpulse)*sampling_rate
 
-	return pulses[num](q)
+		rot_angle = [fill(0.5, 4); fill(1/3, 8)]
+
+		# rotation axis polar angle in portions of circle
+		# comes in three flavours: x+z or y+z, xy+z and xy-z
+		xz = 1/8
+		xyzₚ = acos(1/√3) / 2π
+		xyzₘ = (π - acos(1/√3) ) / 2π
+		Θ = [xz, xz, xz, xz, xyzₚ, xyzₘ, xyzₚ, xyzₘ, xyzₘ, xyzₚ, xyzₚ, xyzₘ]
+		# rotation axis azimuthal angle in portions of circle
+		ϕ = [0, 1/2, 1/4, -1/4, 1/4, 5/8, -1/8, 3/8, 1/8, 5/8, 3/8, -1/8]
+
+		#TODO: reduce code duplication with pulseshapes.jl
+		if q.shape_params[:length] > 0
+			# start from a gaussian shaped pulse
+			gauss_pulse = PulseShapes.gaussian(pulse_length=q.shape_params[:length], sampling_rate=sampling_rate)
+			# scale to achieve to the desired rotation
+			cal_scale = (rot_angle/2/pi)*sampling_rate/sum(gauss_pulse)
+			# calculate the phase ramp steps to achieve the desired Z component to the rotation axis
+			phase_steps = -2π*cos(Θ)*cal_scale*gauss_pulse/sampling_rate
+			# Calculate Z DRAG correction to phase steps
+			# β is a conversion between XY drag scaling and Z drag scaling
+			β = q.shape_params[:drag_scaling]/sampling_rate
+			instantaneous_detuning = β * (2π*cal_scale*sin(Θ)*gauss_pulse).^2
+			phase_steps += instantaneous_detuning*(1/sampling_rate)
+			frame_change = sum(phase_steps)
+		elseif abs(Θ) <1e-10
+			# Otherwise assume we have a zero-length Z rotation
+			frame_change = -rot_angle
+		end
+
+		return PulseBlock(Dict(q => [Pulse("AC", q, q.shape_params[:length], 1.0,
+		             ϕ[num-12], q.frequency,
+		             Dict(:shape_function => getfield(QGL.PulseShapes, :arb_axis_drag),
+		                  :nut_freq => nut_freq,
+		                  :rot_angle => rot_angle[num-12],
+		                  :Θ => Θ[num-12])), Z(q, frame_change)]))
+	else
+		error("Invalid single qubit Atomic Clifford number")
+	end
+
 end
 
 """
