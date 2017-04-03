@@ -76,8 +76,8 @@ for (func, label, amp, phase) in [
 	@eval $func(q) = Pulse($label, q, q.shape_params[:length], q.shape_params[$amp], $phase, 0)
 end
 
-U90(q::Qubit, phase::Float64=0.0) = Pulse("U90", q, q.shape_params[:length], 0.25, phase, 0)
-U180(q::Qubit, phase::Float64=0.0) = Pulse("U180", q, q.shape_params[:length], 0.5, phase, 0)
+U90(q::Qubit, phase::Float64=0.0) = Pulse("U90", q, q.shape_params[:length], q.shape_params[:pi2Amp], phase, 0)
+U180(q::Qubit, phase::Float64=0.0) = Pulse("U180", q, q.shape_params[:length], q.shape_params[:piAmp], phase, 0)
 Uθ(q::Union{Qubit, Edge}, length, amp, phase) = Pulse("Uθ", q, length, amp, phase)
 Uθ(q::Union{Qubit, Edge}, length, amp, phase, freq, shape_params) = Pulse("Uθ", q, length, amp, phase, freq, shape_params)
 
