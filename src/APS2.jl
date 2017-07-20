@@ -174,21 +174,31 @@ function create_marker_instrs!(instr_lib, pulses, marker_chan)
 end
 
 
-function find_next_analog_entry!(entry, chan, wf_lib, analog_timestamps, id_ch)
+function find_next_analog_entry!(entry, chan, wf_lib, analog_timestamps, id_ch, Z_chs_id)
 		if any([id_ch[ct] > length(entry.pulses[chan[ct]]) for ct in length(chan)])
 			return
 		end
 		sim_chs_id = find(x-> x == minimum(analog_timestamps), analog_timestamps)
+		filter!(x->!(x in Z_chs_id), sim_chs_id)
 		if length(sim_chs_id) == 1
 						chan_select = sim_chs_id[1]
 		else
-				pulses = [entry.pulses[chan[ct]][id_ch[ct]] for ct in sim_chs_id] #select pulses on simultaneous channels
+				pulses = []
+			  for ct in sim_chs_id
+					pulse = entry.pulses[chan[ct]][id_ch[ct]]
+					if typeof(pulse) == QGL.ZPulse
+						push!(Z_chs_id, ct)
+						return pulse
+					end
+					push!(pulses, pulse)
+				end
+			  #select pulses on simultaneous channels
 				nonid_ids = find([!wf_lib[pulse].isTA for pulse in pulses]) #find non-Id pulses
 				if length(nonid_ids) > 1
 						error("Only a single non-Id channel allowed")
 				elseif length(nonid_ids) == 1
 						chan_select = sim_chs_id[nonid_ids[1]]
-				else
+				else #select the channel with the shortest Id
 						chan_select = sim_chs_id[indmin([pulse.length for pulse in pulses])]
 				end
 		end
@@ -197,6 +207,7 @@ function find_next_analog_entry!(entry, chan, wf_lib, analog_timestamps, id_ch)
 				analog_timestamps[ct] += wf_lib[entry.pulses[chan[ct]][id_ch[ct]]].count + 1
 				id_ch[ct]+=1
 		end
+		Z_chs_id = []
 		return next_entry
 end
 
@@ -235,6 +246,7 @@ function create_instrs(seqs, wf_lib, chans, chan_freqs)
 
 			analog_timestamps = zeros(Int, length(chan_freqs))
 			analog_idx = ones(Int, length(chan_freqs))
+			Z_chs_id = []
 			# serialize pulses from the PulseBlock
 			# round-robin through the channels until all are exhausted
 			while !all(all_done)
@@ -244,7 +256,7 @@ function create_instrs(seqs, wf_lib, chans, chan_freqs)
 					if (!all_done[ct]) && (time_stamp[ct] <= next_instr_time)
 
 						if length(chan)>1 # multiple logical channels per analog channel
-							next_entry = find_next_analog_entry!(entry, chan, wf_lib, analog_timestamps, analog_idx)
+							next_entry = find_next_analog_entry!(entry, chan, wf_lib, analog_timestamps, analog_idx, Z_chs_id)
 							if typeof(next_entry) == Void
 								all_done[ct] = true
 								break
