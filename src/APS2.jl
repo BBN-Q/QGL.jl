@@ -181,27 +181,27 @@ function find_next_analog_entry!(entry, chan, wf_lib, analog_timestamps, id_ch, 
 		sim_chs_id = find(x-> x == minimum(analog_timestamps), analog_timestamps)
 		filter!(x->!(x in Z_chs_id), sim_chs_id)
 		if length(sim_chs_id) == 1
-						chan_select = sim_chs_id[1]
+			chan_select = sim_chs_id[1]
 		else
-				pulses = []
-			  for ct in sim_chs_id
-					pulse = entry.pulses[chan[ct]][id_ch[ct]]
+			pulses = []
+			for ct in sim_chs_id
+				pulse = entry.pulses[chan[ct]][id_ch[ct]]
 					if typeof(pulse) == QGL.ZPulse
 						push!(Z_chs_id, ct)
 						return pulse
 					end
 					push!(pulses, pulse)
 				end
-			  #select pulses on simultaneous channels
+				#select pulses on simultaneous channels
 				nonid_ids = find([!wf_lib[pulse].isTA for pulse in pulses]) #find non-Id pulses
 				if length(nonid_ids) > 1
-						error("Only a single non-Id channel allowed")
+					error("Only a single non-Id channel allowed")
 				elseif length(nonid_ids) == 1
-						chan_select = sim_chs_id[nonid_ids[1]]
+					chan_select = sim_chs_id[nonid_ids[1]]
 				else #select the channel with the shortest Id
-						chan_select = sim_chs_id[indmin([pulse.length for pulse in pulses])]
+					chan_select = sim_chs_id[indmin([pulse.length for pulse in pulses])]
 				end
-		end
+			end
 				next_entry = entry.pulses[chan[chan_select]][id_ch[chan_select]]
 		for ct in sim_chs_id
 				analog_timestamps[ct] += wf_lib[entry.pulses[chan[ct]][id_ch[ct]]].count + 1
