@@ -245,7 +245,7 @@ function waveform(p::Pulse, sampling_rate)
 end
 
 function MEAS(q::Qubit)
-	m = measurement_channel(q)
+	m = measurement_channel(q.label)
 	meas_pulse = Pulse("MEAS", m, m.shape_params[:length], m.shape_params[:amp], 0.0, m.shape_params[:autodyne_freq])
 	pb = PulseBlock(meas_pulse)
 	if m.trigger_channel != ""

@@ -59,11 +59,11 @@ immutable Marker <: Channel
 end
 
 function Marker(label)
-	m_params = get_marker_params()[label]
-	phys_chan = get(m_params, "AWG", "")
+	phys_chan = get_marker_params()[label]
+	m_params = get_instrument_params()[split(phys_chan)[1]]["markers"][split(phys_chan)[2]]
 	# translate pulse function in shape params from a string to a function handle and snakeify key
 	shape_params =  Dict{Symbol, Any}(Symbol(k) => v for (k,v) in m_params)
-	shape_params[:shape_function] = getfield(QGL.PulseShapes,  Symbol(pop!(shape_params, :shapeFun)))
+	shape_params[:shape_function] = getfield(QGL.PulseShapes,  Symbol(pop!(shape_params, :shape_fun)))
 	Marker(label, phys_chan, shape_params)
 end
 
@@ -91,24 +91,22 @@ immutable Measurement <: Channel
 end
 
 """
-	measurement_channel(q::Qubit)
+	measurement_channel(l:String)
 
-Looks us the measurement channel associated with qubit. Currently uses the
-M-q.label convention.
+Looks us the measurement channel associated with qubit.
 """
-function measurement_channel(q::Qubit)
-	m_label = "M-"*q.label
-	m_params = get_qubit_params()[m_label]["measure"]
+function measurement_channel(l::String)
+	m_params = get_qubit_params()[l]["measure"]
 	phys_chan = get(m_params, "AWG", "")
 	gate_chan = get(m_params, "gate", "")
 	trig_chan = get(m_params, "trigger", "")
 	# pull out shape_params and convert keys to symbols for splatting into shape function
 	shape_params = Dict{Symbol, Any}(Symbol(k) => v for (k,v) in m_params["pulse_params"])
 	# translate pulse function in shape params from a string to a function handle and snakeify key
-	shape_params[:shape_function] = getfield(QGL.PulseShapes,  Symbol(pop!(shape_params, :shapeFun)))
+	shape_params[:shape_function] = getfield(QGL.PulseShapes,  Symbol(pop!(shape_params, :shape_fun)))
 	# inject autodyne frequence into the `shape_params` where it should be
 	shape_params[:autodyne_freq] = m_params["autodyne_freq"]
-	Measurement(m_label, phys_chan, gate_chan, trig_chan, shape_params, 0)
+	Measurement(string("M-", l), phys_chan, gate_chan, trig_chan, shape_params, 0)
 end
 
 """

@@ -147,10 +147,10 @@ function create_wf_instrs!(instr_lib, wfs, pulses)
 		end
 		if !USE_PULSE_FREQUENCY_INSTRUCTION && p.frequency != 0
 			# bake the pulse frequency into the waveform
-			wf .*= exp(-1im * 2π * p.frequency * (1/DAC_CLOCK) * (1:length(wf)) )
+			wf .*= exp.(-1im * 2π * p.frequency * (1/DAC_CLOCK) * (1:length(wf)) )
 		end
 		# reduce to Int16 with maximum for 14 bit DAC
-		wf = round(Int16, MAX_WAVEFORM_VALUE*real(wf)) + 1im*round(Int16, MAX_WAVEFORM_VALUE*imag(wf))
+		wf = round.(Int16, MAX_WAVEFORM_VALUE*real(wf)) + 1im*round.(Int16, MAX_WAVEFORM_VALUE*imag(wf))
 
 		isTA = all(wf .== wf[1])
 		instr_lib[p] = Waveform(idx, length(wf), isTA, true)

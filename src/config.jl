@@ -36,7 +36,7 @@ sequence_files_path = get(cfg, "AWGDir", "")
 	# 		)
 	# 	)
 	# end
-end
+#end
 
 get_qubit_params() = cfg["qubits"]
 get_marker_params() = cfg["markers"]
