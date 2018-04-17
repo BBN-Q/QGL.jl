@@ -41,7 +41,7 @@ function Pulse(
 	# WARNING! this is obviously subject to change in Julia Base
 	ml = methods(shape_params[:shape_function])
 	m = collect(ml)[1]
-	kwargs = Base.kwarg_decl(m.sig, typeof(ml.mt.kwsorter))
+	kwargs = Base.kwarg_decl(m, typeof(ml.mt.kwsorter))
 
 	filter!((k,v) -> k == :shape_function || k in kwargs, shape_params)
 

@@ -1,6 +1,8 @@
 import Base: show, push!
 
-import .config.get_channel_params
+import .config.get_qubit_params
+import .config.get_marker_params
+import .config.get_edge_params
 import .config.get_instrument_params
 
 export compile_to_hardware
