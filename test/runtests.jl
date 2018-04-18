@@ -14,7 +14,7 @@ if !isdir(cfg_folder)
 end
 
 open(cfg_file, "w") do f
-	write(f, "test_measure.yml")
+	write(f, joinpath(cfg_folder, "test_measure.yml"))
 end
 # 	cfg = Dict{String,String}()
 # 	cfg["channel_params_file"] = joinpath(dirname(@__FILE__), "ChannelParams.json")
