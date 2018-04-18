@@ -39,9 +39,9 @@ p = X90(q1)
 @test p.label == "X90"
 end
 
-finally
-if restore_backup
-	mv(cfg_file*".orig", cfg_file, remove_destination=true)
-end
+# finally
+# if restore_backup
+# 	mv(cfg_file*".orig", cfg_file, remove_destination=true)
+# end
 
 end
