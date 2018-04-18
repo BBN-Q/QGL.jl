@@ -13,10 +13,6 @@ if !isdir(cfg_folder)
 	mkdir(cfg_folder)
 end
 
-# sequence_files_path = joinpath(dirname(@__FILE__), "sequence_files")
-if !isdir(sequence_files_path)
-	mkdir(sequence_files_path)
-end
 open(cfg_file, "w") do f
 	write(f, "test_measure.yml")
 end
