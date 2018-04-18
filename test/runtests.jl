@@ -1,7 +1,7 @@
 # setup cfg to point to test channel parameters JSON file
 import YAML
-cfg_folder = joinpath(dirname(@__FILE__), "..", "cfg")
-cfg_file = joinpath(cfg_folder, "test_measure.yml")
+# cfg_folder = joinpath(dirname(@__FILE__), "..", "cfg")
+# cfg_file = joinpath(cfg_folder, "measure.yml")
 # backup existing one
 # restore_backup = false
 # if isfile(cfg_file)
