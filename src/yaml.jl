@@ -1,3 +1,5 @@
+# https://discourse.julialang.org/t/yaml-jl-custom-tag-constructor-example-include/3900
+
 module yaml
 
 export load_file_relative
