@@ -4,53 +4,33 @@
 
 module config
 
-import JSON
-
-channel_json_file = ""
-instrument_json_file = ""
-sequence_files_path = ""
+import YAML
 
 cfg_folder = joinpath(Pkg.dir("QGL"), "cfg")
-cfg_file = joinpath(cfg_folder, "cfg.json")
+cfg_path = joinpath(cfg_folder, "cfg_path.txt")
+# for simplicity here use single config file
 
-if isdir(cfg_folder) && isfile(cfg_file)
-	cfg = JSON.parsefile(cfg_file)
-	channel_json_file = get(cfg, "channel_params_file", "")
-	instrument_json_file = get(cfg, "instrument_params_file", "")
-	sequence_files_path = get(cfg, "sequence_files_path", "")
+if isdir(cfg_folder) && isfile(cfg_path)
+    f = open(cfg_path)
+    cfg_yaml = readstring(f)
+    close(f)
+
 else
-	println("Please provide path to channel parameters JSON file:")
-	channel_json_file = chomp(readline())
-	println("Please provide path to instrument parameters JSON file:")
-	instrument_json_file = chomp(readline())
-	println("Please provide path to where sequence files should be output to:")
-	sequence_files_path = chomp(readline())
+	println("Please provide path to yaml settings file:")
+	 cfg_yaml = chomp(readline())
 
 	if !isdir(cfg_folder)
 		mkdir(cfg_folder)
 	end
-	open(cfg_file, "w") do f
-		JSON.print(f,
-			Dict{String,String}(
-				"channel_params_file" => channel_json_file,
-				"instrument_params_file" => instrument_json_file,
-				"sequence_files_path" => sequence_files_path
-			)
-		)
-	end
+	open(cfg_path, "w") do f
+        write(f, cfg_yaml)
+    end
 end
 
-get_channel_params() = JSON.parsefile(channel_json_file)["channelDict"]
-get_instrument_params() = JSON.parsefile(instrument_json_file)["instrDict"]
-
-# TODO: is this useful or perhaps all we can do with immutable channel objects
-# watch the channel JSON file
-# @async begin
-# 	while true
-# 		event = watch_file("/home/cryan/Programming/Repos/PyQLab/cfg/ChannelParams.json")
-# 		if event.changed
-# 			warn("ChannelParams file updated.")
-# 	end
-# end
+cfg = YAML.load_file(cfg_yaml)
+get_qubit_params() = cfg["qubits"]
+get_marker_params() = cfg["markers"]
+get_edge_params() = cfg["edges"]
+get_instrument_params() = cfg["instruments"]
 
 end

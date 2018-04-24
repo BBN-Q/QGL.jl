@@ -1,7 +1,8 @@
 # setup cfg to point to test channel parameters JSON file
-import JSON
+import YAML
 cfg_folder = joinpath(dirname(@__FILE__), "..", "cfg")
-cfg_file = joinpath(cfg_folder, "cfg.json")
+cfg_file = joinpath(cfg_folder, "cfg_path.txt")
+
 # backup existing one
 restore_backup = false
 if isfile(cfg_file)
@@ -11,17 +12,16 @@ end
 if !isdir(cfg_folder)
 	mkdir(cfg_folder)
 end
-sequence_files_path = joinpath(dirname(@__FILE__), "sequence_files")
-if !isdir(sequence_files_path)
-	mkdir(sequence_files_path)
-end
+
 open(cfg_file, "w") do f
-	cfg = Dict{String,String}()
-	cfg["channel_params_file"] = joinpath(dirname(@__FILE__), "ChannelParams.json")
-	cfg["instrument_params_file"] = joinpath(dirname(@__FILE__), "Instruments.json")
-	cfg["sequence_files_path"] = sequence_files_path
-	JSON.print(f, cfg)
+	write(f, joinpath(cfg_folder, "test_measure.yml"))
 end
+# 	cfg = Dict{String,String}()
+# 	cfg["channel_params_file"] = joinpath(dirname(@__FILE__), "ChannelParams.json")
+# 	cfg["instrument_params_file"] = joinpath(dirname(@__FILE__), "Instruments.json")
+# 	cfg["sequence_files_path"] = sequence_files_path
+# 	JSON.print(f, cfg)
+# end
 
 using QGL
 using Base.Test

@@ -2,7 +2,10 @@ import Base: show, ==, hash
 
 export Qubit, Edge, Marker
 
-import .config.get_channel_params
+import .config.get_qubit_params
+import .config.get_marker_params
+import .config.get_edge_params
+import .config.get_instrument_params
 
 @compat abstract type Channel end
 show(io::IO, c::Channel) = print(io, c.label)
@@ -20,18 +23,18 @@ immutable Qubit <: Channel
 end
 
 function Qubit(label)
-	channel_params = get_channel_params()
+	channel_params = get_qubit_params()
 
 	if label in keys(channel_params)
-		q_params = channel_params[label]
-		phys_chan = get(q_params, "physChan", "")
-		gate_chan = get(q_params, "gateChan", "")
+		q_params = channel_params[label]["control"]
+		phys_chan = get(q_params, "AWG", "")
+		gate_chan = get(q_params, "gate", "")
 
 		# pull out shape_params and convert keys to symbols for splatting into shape function
-		shape_params = Dict{Symbol, Any}(Symbol(k) => v for (k,v) in q_params["pulseParams"])
+		shape_params = Dict{Symbol, Any}(Symbol(k) => v for (k,v) in q_params["pulse_params"])
 
 		# translate pulse function in shape params from a string to a function handle and snakeify key
-		shape_params[:shape_function] = getfield(QGL.PulseShapes, Symbol(pop!(shape_params, :shapeFun)))
+		shape_params[:shape_function] = getfield(QGL.PulseShapes, Symbol(pop!(shape_params, :shape_fun)))
 
 		# snakeify some other parameters
 		if :dragScaling in keys(shape_params)
@@ -56,11 +59,11 @@ immutable Marker <: Channel
 end
 
 function Marker(label)
-	m_params = get_channel_params()[label]
-	phys_chan = get(m_params, "physChan", "")
+	phys_chan = get_marker_params()[label]
+	m_params = get_instrument_params()[split(phys_chan)[1]]["markers"][split(phys_chan)[2]]
 	# translate pulse function in shape params from a string to a function handle and snakeify key
-	shape_params =  Dict{Symbol, Any}(Symbol(k) => v for (k,v) in m_params["pulseParams"])
-	shape_params[:shape_function] = getfield(QGL.PulseShapes,  Symbol(pop!(shape_params, :shapeFun)))
+	shape_params =  Dict{Symbol, Any}(Symbol(k) => v for (k,v) in m_params)
+	shape_params[:shape_function] = getfield(QGL.PulseShapes,  Symbol(pop!(shape_params, :shape_fun)))
 	Marker(label, phys_chan, shape_params)
 end
 
@@ -88,24 +91,22 @@ immutable Measurement <: Channel
 end
 
 """
-	measurement_channel(q::Qubit)
+	measurement_channel(l:String)
 
-Looks us the measurement channel associated with qubit. Currently uses the
-M-q.label convention.
+Looks us the measurement channel associated with qubit.
 """
-function measurement_channel(q::Qubit)
-	m_label = "M-"*q.label
-	m_params = get_channel_params()[m_label]
-	phys_chan = get(m_params, "physChan", "")
-	gate_chan = get(m_params, "gateChan", "")
-	trig_chan = get(m_params, "trigChan", "")
+function measurement_channel(l::String)
+	m_params = get_qubit_params()[l]["measure"]
+	phys_chan = get(m_params, "AWG", "")
+	gate_chan = get(m_params, "gate", "")
+	trig_chan = get(m_params, "trigger", "")
 	# pull out shape_params and convert keys to symbols for splatting into shape function
-	shape_params = Dict{Symbol, Any}(Symbol(k) => v for (k,v) in m_params["pulseParams"])
+	shape_params = Dict{Symbol, Any}(Symbol(k) => v for (k,v) in m_params["pulse_params"])
 	# translate pulse function in shape params from a string to a function handle and snakeify key
-	shape_params[:shape_function] = getfield(QGL.PulseShapes,  Symbol(pop!(shape_params, :shapeFun)))
+	shape_params[:shape_function] = getfield(QGL.PulseShapes,  Symbol(pop!(shape_params, :shape_fun)))
 	# inject autodyne frequence into the `shape_params` where it should be
-	shape_params[:autodyne_freq] = m_params["autodyneFreq"]
-	Measurement(m_label, phys_chan, gate_chan, trig_chan, shape_params, m_params["frequency"])
+	shape_params[:autodyne_freq] = m_params["autodyne_freq"]
+	Measurement(string("M-", l), phys_chan, gate_chan, trig_chan, shape_params, 0)
 end
 
 """
@@ -128,25 +129,25 @@ Create the edge representing interaction drive from `source` to `target`.
 """
 function Edge(source::Qubit, target::Qubit)
 	# look up whether we have an edge connecting source -> target
-	channel_params = get_channel_params()
+	channel_params = get_edge_params()
 
 	edges = filter(
-		(k,v) -> get(v, "x__class__", "") == "Edge" && v["source"] == source.label && v["target"] == target.label,
+		(k,v) -> v["source"] == source.label && v["target"] == target.label,
 		channel_params)
 
 	@assert length(edges) == 1 "Found $(length(edges)) matching edges for $source → $target"
 
 	e_params = collect(values(edges))[1]
 
-	phys_chan = get(e_params, "physChan", "")
-	gate_chan = get(e_params, "gateChan", "")
+	phys_chan = get(e_params, "AWG", "")
+	gate_chan = get(e_params, "gate", "")
 
 	# pull out shape_params and convert keys to symbols for splatting into shape function
-	shape_params = e_params["pulseParams"]
+	shape_params = e_params["pulse_params"]
 	shape_params = Dict{Symbol, Any}(Symbol(k) => v for (k,v) in shape_params)
 
 	# translate pulse function in shape params from a string to a function handle and snakeify key
-	shape_params[:shape_function] = getfield(QGL.PulseShapes, Symbol(pop!(shape_params, :shapeFun)))
+	shape_params[:shape_function] = getfield(QGL.PulseShapes, Symbol(pop!(shape_params, :shape_fun)))
 
-	Edge(e_params["label"], source, target, phys_chan, gate_chan, shape_params, e_params["frequency"])
+	Edge(collect(keys(edges))[1], source, target, phys_chan, gate_chan, shape_params, e_params["frequency"])
 end

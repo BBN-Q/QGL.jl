@@ -1,0 +1,89 @@
+# Minimal QGL configuration for QGL-demo notebook
+# Imports can be made using the !include keyword. e.g.
+# instruments: !include instruments.yml
+config:
+  AWGDir: "./awg/"
+
+qubits:
+  q1:
+    measure:
+      AWG: BBNAPS1 12
+      trigger: digitizerTrig
+      receiver: q1-RawSS
+      autodyne_freq: 10000000.0
+      pulse_params:
+        amp: 0.9
+        cutoff: 2.0
+        length: 4.0e-06 #2.0e-07
+        shape_fun: tanh
+        sigma: 5.0e-09
+
+    control:
+      AWG: BBNAPS2 12
+      frequency: -50e6
+      pulse_params:
+        cutoff: 2.0
+        length: 200e-9
+        pi2Amp: 0.45
+        piAmp: 0.8767
+        shape_fun: drag
+        drag_scaling: -0.5
+        sigma: 5.0e-09
+
+markers:
+  digitizerTrig: BBNAPS1 12m1
+  slave_trig: BBNAPS1 12m2
+
+instruments:
+  BBNAPS1:
+    type: APS2
+    master: true
+    tx_channels:
+      '12':
+        delay: 0.0
+        phase_skew: -0.03285
+        amp_factor: 0.99261
+        '1':
+          offset: -0.01347
+          amplitude: 0.3
+          enabled: true
+        '2':
+          offset: -0.01333
+          amplitude: 0.3
+          enabled: true
+    markers:
+      12m1:
+        delay: 1.0e-07
+        length: 1.0e-07
+        shape_fun: constant
+      12m2:
+        delay: 1.0e-07
+        length: 1.0e-07
+        shape_fun: constant
+
+  BBNAPS2:
+    type: APS2
+    tx_channels:
+      '12':
+        delay: 0.0
+        phase_skew: -0.03285
+        amp_factor: 0.99261
+        '1':
+          offset: -0.01347
+          amplitude: 0.3
+          enabled: true
+        '2':
+          offset: -0.01333
+          amplitude: 0.3
+          enabled: true
+    markers:
+      12m1:
+        delay: 1.0e-07
+        length: 1.0e-07
+        shape_fun: constant
+
+  X6-1:
+    type: X6
+    rx_channels:
+      '1':
+      '2':

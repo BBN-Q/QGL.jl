@@ -1,6 +1,8 @@
 import Base: show, push!
 
-import .config.get_channel_params
+import .config.get_qubit_params
+import .config.get_marker_params
+import .config.get_edge_params
 import .config.get_instrument_params
 
 export compile_to_hardware
@@ -32,7 +34,7 @@ function compile_to_hardware{T}(seq::Vector{T}, base_filename; suffix="")
 	#save_code(seq)
 
 	# add slave trigger to every WAIT
-	add_slave_trigger!(seq, Marker("slaveTrig"))
+	add_slave_trigger!(seq, Marker("slave_trig"))
 
 	# propagate frame changes to edges
 	propagate_frame_change!(seq)
@@ -47,14 +49,15 @@ function compile_to_hardware{T}(seq::Vector{T}, base_filename; suffix="")
 	seqs, pulses, chans = compile(seq)
 
 	# normalize and inject the channel delays
-	channel_params = get_channel_params()
+	qubit_params = get_qubit_params()
 	instr_params = get_instrument_params()
 	chan_delays = Dict{Channel, Float64}()
 	for chan in chans
 		# delays are shifted by AWG delay too
-		chan_awg = channel_params[chan.awg_channel]["instrument"]
-		awg_delay = instr_params[chan_awg]["delay"]
-		chan_delays[chan] = channel_params[chan.awg_channel]["delay"] + awg_delay
+		#chan_awg = channel_params[chan.awg_channel]["instrument"]
+		ch_type = typeof(chan) == Marker ? "markers" : "tx_channels"
+		chan_delays[chan] = instr_params[split(chan.awg_channel)[1]][ch_type][split(chan.awg_channel)[2]]["delay"]
+		#chan_delays[chan] = channel_params[chan.awg_channel]["delay"] + awg_delay $TODO: is this obsolete?
 	end
 	normalize_channel_delays!(chan_delays)
 	inject_channel_delays!(seqs, pulses, chan_delays)
@@ -63,9 +66,9 @@ function compile_to_hardware{T}(seq::Vector{T}, base_filename; suffix="")
 	AWGs = Dict{String, Dict}()
 	chan_str_map = Dict("12"=>:ch12, "12m1"=>:m1, "12m2"=>:m2, "12m3"=>:m3, "12m4"=>:m4)
 	for chan in chans
-		awg = channel_params[chan.awg_channel]["instrument"]
+		awg = split(chan.awg_channel)[1]
 		# get channel string from AWG-chstr convention
-		chan_str = split(chan.awg_channel, '-')[2]
+		chan_str = split(chan.awg_channel)[2]
 		# TODO: map is currently only for APS2 - should be looked up from somewhere
 		# there can be multiple logical channels mapped to the same physical channel
 		if haskey(AWGs, awg) && haskey(AWGs[awg], chan_str_map[chan_str])
@@ -75,12 +78,10 @@ function compile_to_hardware{T}(seq::Vector{T}, base_filename; suffix="")
 	  end
 	end
 
-	translator_map = Dict("APS2Pattern" => APS2)
+	translator_map = Dict("APS2" => APS2)
 	for (awg, ch_map) in AWGs
 		# use first channel to lookup translator
-		first_chan = collect(values(ch_map))[1][1]
-		phys_chan = channel_params[first_chan.awg_channel]
-		translator = translator_map[ phys_chan["translator"] ]
+		translator = translator_map[instr_params[awg]["type"]]
 		translator.write_sequence_file(base_filename*"-$awg.h5", seqs, pulses, ch_map)
 	end
 	return seqs

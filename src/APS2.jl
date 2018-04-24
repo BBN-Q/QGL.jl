@@ -147,10 +147,10 @@ function create_wf_instrs!(instr_lib, wfs, pulses)
 		end
 		if !USE_PULSE_FREQUENCY_INSTRUCTION && p.frequency != 0
 			# bake the pulse frequency into the waveform
-			wf .*= exp(-1im * 2π * p.frequency * (1/DAC_CLOCK) * (1:length(wf)) )
+			wf .*= exp.(-1im * 2π * p.frequency * (1/DAC_CLOCK) * (1:length(wf)) )
 		end
 		# reduce to Int16 with maximum for 14 bit DAC
-		wf = round(Int16, MAX_WAVEFORM_VALUE*real(wf)) + 1im*round(Int16, MAX_WAVEFORM_VALUE*imag(wf))
+		wf = round.(Int16, MAX_WAVEFORM_VALUE*real(wf)) + 1im*round.(Int16, MAX_WAVEFORM_VALUE*imag(wf))
 
 		isTA = all(wf .== wf[1])
 		instr_lib[p] = Waveform(idx, length(wf), isTA, true)
@@ -175,7 +175,7 @@ end
 
 
 function find_next_analog_entry!(entry, chan, wf_lib, analog_timestamps, id_ch, Z_chs_id)
-	if any([id_ch[ct] > length(entry.pulses[chan[ct]]) for ct in length(chan)])
+	if any([id_ch[ct] > length(entry.pulses[chan[ct]]) for ct in 1:length(chan)])
 		return
 	end
 	sim_chs_id = find(x-> x == minimum(analog_timestamps), analog_timestamps)
@@ -188,7 +188,7 @@ function find_next_analog_entry!(entry, chan, wf_lib, analog_timestamps, id_ch, 
 				push!(Z_chs_id, ct)
 			end
 			id_ch[ct]+=1
-			return pulse
+			return pulse, Z_chs_id
 		end
 		push!(pulses, pulse)
 	end
@@ -211,7 +211,7 @@ function find_next_analog_entry!(entry, chan, wf_lib, analog_timestamps, id_ch, 
 		id_ch[ct]+=1
 	end
 	Z_chs_id = []
-	return next_entry
+	return next_entry, Z_chs_id
 end
 
 function create_instrs(seqs, wf_lib, chans, chan_freqs)
@@ -259,11 +259,12 @@ function create_instrs(seqs, wf_lib, chans, chan_freqs)
 					if (!all_done[ct]) && (time_stamp[ct] <= next_instr_time)
 
 						if length(chan)>1 # multiple logical channels per analog channel
-							next_entry = find_next_analog_entry!(entry, chan, wf_lib, analog_timestamps, analog_idx, Z_chs_id)
-							if typeof(next_entry) == Void
+							next_entry_info = find_next_analog_entry!(entry, chan, wf_lib, analog_timestamps, analog_idx, Z_chs_id)
+							if typeof(next_entry_info) == Void
 								all_done[ct] = true
 								break
 							end
+							next_entry, Z_chs_id = next_entry_info
 						else
 							next_entry = entry.pulses[chan[1]][idx[ct]]
 							idx[ct] += 1

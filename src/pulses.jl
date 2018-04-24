@@ -1,6 +1,6 @@
 import Base: convert, promote_rule, length, ==
 
-export X90, X, X90m, Y90, Y, Y90m, U90, Uθ, Z90, Z, Z90m, Id, ⊗, MEAS, AC, DiAC, ZX90
+export X90, X, X90m, Y90, Y, Y90m, U90, Uθ, Z90, Z, Z90m, Id, ⊗, MEAS, AC, DiAC, ZX90, CNOT
 
 # NOTE A suggested type hierarchy:
 # abstract AbstractBlock
@@ -41,7 +41,7 @@ function Pulse(
 	# WARNING! this is obviously subject to change in Julia Base
 	ml = methods(shape_params[:shape_function])
 	m = collect(ml)[1]
-	kwargs = Base.kwarg_decl(m.sig, typeof(ml.mt.kwsorter))
+	kwargs = Base.kwarg_decl(m, typeof(ml.mt.kwsorter))
 
 	filter!((k,v) -> k == :shape_function || k in kwargs, shape_params)
 
@@ -245,7 +245,7 @@ function waveform(p::Pulse, sampling_rate)
 end
 
 function MEAS(q::Qubit)
-	m = measurement_channel(q)
+	m = measurement_channel(q.label)
 	meas_pulse = Pulse("MEAS", m, m.shape_params[:length], m.shape_params[:amp], 0.0, m.shape_params[:autodyne_freq])
 	pb = PulseBlock(meas_pulse)
 	if m.trigger_channel != ""
@@ -286,3 +286,23 @@ function ZX90(qc::Qubit, qt::Qubit)
 		qc => [Id(qc, flat_top_length), X(qc), Id(qc, flat_top_length), X(qc)]
 	))
 end
+
+function CNOT(qc::Qubit, qt::Qubit)
+	zx90 = ZX90(qc, qt)
+	CRchan = Edge(qc,qt)
+	x90m = X90m(qt)
+	zx90.pulses[qt] = [Id(qt, length(zx90)), x90m]
+	push!(zx90.pulses[qc], Z90m(qc), Id(qc, length(x90m))) 
+	push!(zx90.pulses[CRchan], Id(CRchan, length(x90m)))
+	return zx90
+end
+
+# function CNOT(qc::Qubit, qt::Qubit)
+# 	CRchan = Edge(qc,qt)
+# 	flat_top_length = CRchan.shape_params[:length] + 2*CRchan.shape_params[:riseFall]
+#   return QGL.PulseBlock( Dict(
+# 		CRchan => [QGL.flat_top_gaussian(CRchan); Id(CRchan, qc.shape_params[:length]); QGL.flat_top_gaussian(CRchan; pi_shift=true); Id(CRchan, qc.shape_params[:length] + qt.shape_params[:length])],
+# 		qc => [Id(qc, flat_top_length), X(qc), Id(qc, flat_top_length), X(qc), Z90m(qc), Id(qc, qt.shape_params[:length])],
+# 		qt => [Id(qt, 2*flat_top_length+2*qc.shape_params[:length]), X90m(qt)]
+# 	))
+# end
