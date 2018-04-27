@@ -3,8 +3,8 @@
 # Copyright 2017 Raytheon BBN Technologies
 
 module config
-
-import YAML
+import ..yaml
+#import .yaml.load_file_relative
 
 cfg_folder = joinpath(Pkg.dir("QGL"), "cfg")
 cfg_path = joinpath(cfg_folder, "cfg_path.txt")
@@ -27,10 +27,11 @@ else
     end
 end
 
-cfg = YAML.load_file(cfg_yaml)
+cfg = yaml.load_file_relative(cfg_yaml)
 get_qubit_params() = cfg["qubits"]
 get_marker_params() = cfg["markers"]
 get_edge_params() = cfg["edges"]
 get_instrument_params() = cfg["instruments"]
+sequence_files_path = cfg["config"]["AWGDir"]
 
 end
