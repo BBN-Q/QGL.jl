@@ -1,7 +1,7 @@
 name = "QGL"
 uuid = "ad0c24d0-9e87-4ecb-bb43-4b3bae5867a1"
 authors = ["Colm Ryan", "Blake Johnson"]
-licence = "MIT"
+licence = "Apache"
 
 [deps]
 Compat = "34da2185-b29b-5c13-b0c7-acf172513d20"
