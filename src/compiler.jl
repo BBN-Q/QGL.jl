@@ -7,13 +7,13 @@ import .config.get_instrument_params
 
 export compile_to_hardware
 
-immutable Event
+struct Event
 	label::String
 end
 
 SequenceEntry = Union{Pulse, PulseBlock, ZPulse, ControlFlow, Event}
 
-function flatten_seqs{T}(seqs::Vector{Vector{T}})
+function flatten_seqs(seqs::Vector{Vector{T}}) where T <: Any
 	flat_seq = Vector{SequenceEntry}()
 	for seq = seqs
 		push!(flat_seq, wait())
@@ -24,11 +24,11 @@ function flatten_seqs{T}(seqs::Vector{Vector{T}})
 	return flat_seq
 end
 
-function compile_to_hardware{T}(seqs::Vector{Vector{T}}, base_filename)
+function compile_to_hardware(seqs::Vector{Vector{T}}, base_filename)  where T <: Any
 	compile_to_hardware(flatten_seqs(seqs), base_filename)
 end
 
-function compile_to_hardware{T}(seq::Vector{T}, base_filename; suffix="")
+function compile_to_hardware(seq::Vector{T}, base_filename; suffix="")  where T <: Any
 
 	# TODO: save input code to file as metadata
 	#save_code(seq)
