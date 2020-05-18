@@ -23,7 +23,7 @@ qubits:
       frequency: -50e6
       pulse_params:
         cutoff: 2.0
-        pulse_length: 200e-9
+        length: 200e-09
         pi2Amp: 0.45
         piAmp: 0.8767
         shape_fun: drag

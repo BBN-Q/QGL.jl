@@ -43,7 +43,7 @@ function Pulse(
 	m = collect(ml)[1]
 	kwargs = Base.kwarg_decl(m, typeof(ml.mt.kwsorter))
 
-	filter!((k,v) -> k == :shape_function || k in kwargs, shape_params)
+	filter!(k -> k.first == :shape_function || k in kwargs, shape_params)
 
 	# precompute pulse hash we'll evaluate it for each pulse we compile
 	pulse_hash = hash((label, chan, length, amp, phase, frequency, shape_params))
