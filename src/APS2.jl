@@ -349,6 +349,49 @@ function write_to_file(filename, instrs, wfs)
 	end
 	filename = joinpath(seq_path, filename)
 
+	open(filename, "w") do FID
+		write(FID, b"APS2")		# target
+		write(FID, b"4.0")		# version
+		write(FID, b"4.0")		# min firmware version
+		write(FID, UInt16(2))   # number of channels
+		# write instruction data
+		write(FID, UInt64(legnth(instrs)))
+		write(FID, map(UInt8, instrs))
+
+		# because we only support the APS2 for now, limit to
+		# specifically two channels
+		write(FID, UInt64(length(wf_vec)))
+		write(FID, map(UInt8, real(wf_vec)))
+
+		write(FID, UInt64(length(wf_vec)))
+		write(FID, map(UInt8, imag(wf_vec)))
+	end
+end
+
+"""
+Depricated function for writing to h5 files
+"""
+function write_to_h5(filename, instrs, wfs)
+	# flatten waveforms to vector
+	wf_vec = Vector{Complex{Int16}}()
+	if !isempty(wfs)
+		resize!(wf_vec, sum(length(wf) for wf in wfs))
+		idx = 1
+		for wf in wfs
+			wf_vec[idx:idx+length(wf)-1] = wf
+			idx += length(wf)
+		end
+	end
+
+	#prepend the sequence directory
+	seq_name_dir = filename[1:match(r"-", filename).offset-1]
+	seq_path = joinpath(config.sequence_files_path, seq_name_dir)
+	# create the sequence directory if necessary
+	if !isdir(seq_path)
+		mkpath(seq_path)
+	end
+	filename = joinpath(seq_path, filename)
+
 	h5open(filename, "w") do f
 		attrs(f)["Version"] = 4.0
 		attrs(f)["target hardware"] = "APS2"

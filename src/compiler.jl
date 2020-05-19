@@ -82,7 +82,7 @@ function compile_to_hardware(seq::Vector{T}, base_filename; suffix="")  where T 
 	for (awg, ch_map) in AWGs
 		# use first channel to lookup translator
 		translator = translator_map[instr_params[awg]["type"]]
-		translator.write_sequence_file(base_filename*"-$awg.h5", seqs, pulses, ch_map)
+		translator.write_sequence_file(base_filename*"-$awg.aps2", seqs, pulses, ch_map)
 	end
 	return seqs
 end
