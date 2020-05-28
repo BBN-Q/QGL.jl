@@ -8,11 +8,17 @@ julia:
 notifications:
   email: false
 before_install:
-  - sudo apt-get install hdf5-tools
+#  - sudo apt-get install hdf5-tools
 # uncomment the following lines to override the default test script
 #script:
 #  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
 #  - julia -e 'Pkg.clone(pwd()); Pkg.build("silly"); Pkg.test("silly"; coverage=true)'
+   - julia -e 'Pkg.add("Conda")'
+   - julia -e 'using Conda;
+               Conda.add("pip");
+               pip = joinpath(Conda.BINDIR, "pip");
+               run(`$pip install https://github.com/BBN-Q/QGL.git`)'
+
 after_success:
   # push coverage results to Codecov
   - julia -e 'cd(Pkg.dir("silly")); Pkg.add("Coverage"); using Coverage; Codecov.submit(Codecov.process_folder())'
