@@ -6,13 +6,13 @@ module config
 import ..yaml
 #import .yaml.load_file_relative
 
-cfg_folder = joinpath(Pkg.dir("QGL"), "cfg")
+cfg_folder = joinpath(@__DIR__, "..", "cfg")
 cfg_path = joinpath(cfg_folder, "cfg_path.txt")
 # for simplicity here use single config file
 
 if isdir(cfg_folder) && isfile(cfg_path)
     f = open(cfg_path)
-    cfg_yaml = readstring(f)
+    cfg_yaml = read(f, String)
     close(f)
 
 else

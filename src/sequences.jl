@@ -20,7 +20,7 @@ Applies state tomography after the `sequence` on the `qubits` using either the
 4-pulse [Id, X90, Y90, X] or 6-pulse [Id, X90, X90m, Y90, Y90m, X] set of
 tomographic readout pulses.
 """
-function state_tomo{T<:QGL.SequenceEntry}(seq::Vector{T}, qubits::Tuple{Vararg{Qubit}}; num_pulses::Int=4)
+function state_tomo(seq::Vector{T}, qubits::Tuple{Vararg{Qubit}}; num_pulses::Int=4) where T<:QGL.SequenceEntry
     meas_block = reduce(⊗, MEAS(q) for q in qubits)
     return [[seq; tomo_block; meas_block] for tomo_block in tomo_blocks(qubits; num_pulses=num_pulses)]
 end

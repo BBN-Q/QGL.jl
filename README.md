@@ -12,6 +12,21 @@ The package is not yet registered with METADATA.jl and so must be cloned with
 Pkg.clone("https://github.com/BBN-Q/QGL.jl.git")
 ```
 
+### QGL dependency
+
+The SQLite database structure is managed by the python implementation of QGL.  
+This adds to the dependencies but reduces the amount of duplicated work QGL.jl 
+has to do in collecting the qubit control meta-data.  To install QGL and its
+deps:
+
+```julia
+using Conda
+Conda.add("pip")
+pip = joinpath(Conda.BINDIR, "pip")
+run(`$pip install path/to/local/QGL`) # or
+run(`$pip install https://github.com/BBN-Q/QGL.git`)
+```
+
 ## Benchmarks
 
 Preliminary benchmarks show speed-ups for Python QGL of ~25-30X.

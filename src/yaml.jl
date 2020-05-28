@@ -6,11 +6,11 @@ export load_file_relative
 
 using YAML
 
-const _constructors = Dict{AbstractString, Function}()
+const _constructors = Dict{String, Function}()
 
 """Loads YAML files relative to the current directory"""
 function load_file_relative(filename::AbstractString;
-    constructors::Dict{AbstractString, Function}=_constructors
+    constructors::Dict{String, Function}=_constructors
 )
     filename = abspath(filename)
     cd(dirname(filename)) do
@@ -28,7 +28,7 @@ function construct_include(constructor::YAML.Constructor, node::YAML.ScalarNode)
         return readstring(filename)
     end
     # pass forward custom constructors
-    constructors = Dict{AbstractString, Function}(
+    constructors = Dict{String, Function}(
         tag => f for (tag, f) in constructor.yaml_constructors
         if tag !== nothing && ismatch(r"^!\w+$", tag)
     )
