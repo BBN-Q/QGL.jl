@@ -37,7 +37,7 @@ const PREFETCH = 0x0c
 
 const APS2Instruction = UInt64
 
-immutable Waveform
+struct Waveform
 	address::UInt32
 	count::UInt32
 	isTA::Bool
@@ -63,7 +63,7 @@ function Waveform(address, count, isTA, write_flag)
 	Waveform(addr, ct, isTA, write_flag, instr)
 end
 
-immutable Marker
+struct Marker
 	engine_select::UInt8
 	state::Bool
 	count::UInt32
@@ -89,7 +89,7 @@ function Marker(marker_select, count, state, write_flag)
 	Marker(UInt8(marker_select), state, quad_count, transition_word, write_flag, instr)
 end
 
-immutable ControlFlow
+struct ControlFlow
 	instruction::UInt64
 end
 

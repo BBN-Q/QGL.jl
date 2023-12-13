@@ -4,20 +4,23 @@
 
 module config
 import ..yaml
+
+using Pkg
 #import .yaml.load_file_relative
 
-cfg_folder = joinpath(Pkg.dir("QGL"), "cfg")
+# cfg_folder = joinpath(Pkg.dir("QGL"), "cfg")
+cfg_folder = joinpath(@__DIR__, "..", "cfg")
 cfg_path = joinpath(cfg_folder, "cfg_path.txt")
 # for simplicity here use single config file
 
 if isdir(cfg_folder) && isfile(cfg_path)
     f = open(cfg_path)
-    cfg_yaml = readstring(f)
+    cfg_yaml = read(f, String)
     close(f)
 
 else
 	println("Please provide path to yaml settings file:")
-	 cfg_yaml = chomp(readline())
+	cfg_yaml = chomp(readline())
 
 	if !isdir(cfg_folder)
 		mkdir(cfg_folder)

@@ -2,7 +2,7 @@ import Base.show
 
 @enum CONTROL_OP WAIT SYNC LOAD_REPEAT REPEAT GOTO CALL RETURN
 
-immutable ControlFlow
+struct ControlFlow
 	label::String
 	op::CONTROL_OP
 	target

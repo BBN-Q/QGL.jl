@@ -7,7 +7,7 @@ import .config.get_instrument_params
 
 export compile_to_hardware
 
-immutable Event
+struct Event
 	label::String
 end
 
