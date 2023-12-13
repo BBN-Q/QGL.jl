@@ -5,7 +5,7 @@ import Base: convert
 
 using HDF5
 
-import QGL
+import ..QGL
 
 import ..config
 
