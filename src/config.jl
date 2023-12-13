@@ -8,7 +8,6 @@ import ..yaml
 using Pkg
 #import .yaml.load_file_relative
 
-# cfg_folder = joinpath(Pkg.dir("QGL"), "cfg")
 cfg_folder = joinpath(@__DIR__, "..", "cfg")
 cfg_path = joinpath(cfg_folder, "cfg_path.txt")
 # for simplicity here use single config file

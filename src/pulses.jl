@@ -41,9 +41,9 @@ function Pulse(
 	# WARNING! this is obviously subject to change in Julia Base
 	ml = methods(shape_params[:shape_function])
 	m = collect(ml)[1]
-	kwargs = Base.kwarg_decl(m, typeof(ml.mt.kwsorter))
+	kwargs = Base.kwarg_decl(m)
 
-	filter!((k,v) -> k == :shape_function || k in kwargs, shape_params)
+	filter!(p -> p.first == :shape_function || p.first in kwargs, shape_params)
 
 	# precompute pulse hash we'll evaluate it for each pulse we compile
 	pulse_hash = hash((label, chan, length, amp, phase, frequency, shape_params))
