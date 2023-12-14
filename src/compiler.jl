@@ -56,7 +56,17 @@ function compile_to_hardware(seq::Vector{T}, base_filename; suffix="") where {T}
 		# delays are shifted by AWG delay too
 		#chan_awg = channel_params[chan.awg_channel]["instrument"]
 		ch_type = typeof(chan) == Marker ? "markers" : "tx_channels"
-		chan_delays[chan] = instr_params[split(chan.awg_channel)[1]][ch_type][split(chan.awg_channel)[2]]["delay"]
+		awg_name, tx_channel = split(chan.awg_channel)
+		if !haskey(instr_params, awg_name)
+			println("Could not find $awg_name in instr_params")
+		end
+		if !haskey(instr_params[awg_name], ch_type)
+			println("Could not find $ch_type in instr_params for $awg_name")
+		end
+		if !haskey(instr_params[awg_name][ch_type], tx_channel)
+			println("Could not find $tx_channel in settings for $awg_name")
+		end
+		chan_delays[chan] = instr_params[awg_name][ch_type][tx_channel]["delay"]
 		#chan_delays[chan] = channel_params[chan.awg_channel]["delay"] + awg_delay $TODO: is this obsolete?
 	end
 	normalize_channel_delays!(chan_delays)
@@ -64,18 +74,20 @@ function compile_to_hardware(seq::Vector{T}, base_filename; suffix="") where {T}
 
 	# map the labeled channels to physical channels and bundle per APS/AWG
 	AWGs = Dict{String, Dict}()
-	chan_str_map = Dict("12"=>:ch12, "12m1"=>:m1, "12m2"=>:m2, "12m3"=>:m3, "12m4"=>:m4)
+	chan_str_map = Dict("12"=>:ch12, "34"=>:ch34, "12m1"=>:m1, "12m2"=>:m2, "12m3"=>:m3, "12m4"=>:m4)
 	for chan in chans
-		awg = split(chan.awg_channel)[1]
 		# get channel string from AWG-chstr convention
-		chan_str = split(chan.awg_channel)[2]
+		awg, chan_str = split(chan.awg_channel)
 		# TODO: map is currently only for APS2 - should be looked up from somewhere
 		# there can be multiple logical channels mapped to the same physical channel
-		if haskey(AWGs, awg) && haskey(AWGs[awg], chan_str_map[chan_str])
-			push!(AWGs[awg][chan_str_map[chan_str]], chan)
+		if !haskey(AWGs, awg)
+			AWGs[awg] = Dict{Symbol, Array{QGL.Channel}}()
+		end
+		if !haskey(AWGs[awg], chan_str_map[chan_str])
+			AWGs[awg][chan_str_map[chan_str]] = [chan]
 		else
-			get!(AWGs, awg, Dict{Symbol, Array{QGL.Channel}}())[chan_str_map[chan_str]] = [chan]
-	  end
+			push!(AWGs[awg][chan_str_map[chan_str]], chan)
+		end
 	end
 
 	translator_map = Dict("APS2" => APS2)

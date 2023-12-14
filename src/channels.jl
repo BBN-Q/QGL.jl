@@ -1,4 +1,5 @@
 import Base: show, ==, hash
+using Logging
 
 export Qubit, Edge, Marker
 
@@ -43,7 +44,7 @@ function Qubit(label)
 
 		Qubit(label, phys_chan, gate_chan, shape_params, q_params["frequency"])
 	else
-		warn("Unable to find Qubit label $label in channel json file. Creating default Qubit channel")
+		@warn "Unable to find Qubit label $label in channel json file. Creating default Qubit channel"
 		Qubit(label,"", "", Dict{String,Any}(), 0.0)
 	end
 
@@ -132,7 +133,7 @@ function Edge(source::Qubit, target::Qubit)
 	channel_params = get_edge_params()
 
 	edges = filter(
-		(k,v) -> v["source"] == source.label && v["target"] == target.label,
+		p -> p.second["source"] == source.label && p.second["target"] == target.label,
 		channel_params)
 
 	@assert length(edges) == 1 "Found $(length(edges)) matching edges for $source → $target"

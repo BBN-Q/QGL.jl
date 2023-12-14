@@ -121,6 +121,12 @@ function write_sequence_file(filename, seqs, pulses, channel_map)
 			chan_freqs[ch] = ch.frequency
 			create_wf_instrs!(instr_lib, wfs, pulses[ch])
 		end
+		if haskey(channel_map, :ch34)
+			for ch in channel_map[:ch34]
+				chan_freqs[ch] = ch.frequency
+				create_wf_instrs!(instr_lib, wfs, pulses[ch])
+			end
+		end
 	end
 	for (ct, marker_chan) = enumerate([:m1, :m2, :m3, :m4])
 		if marker_chan in keys(channel_map)
@@ -354,10 +360,10 @@ function write_to_file(filename, instrs, wfs)
 		attrs(f)["target hardware"] = "APS2"
 		attrs(f)["minimum firmware version"] = 4.0
 		attrs(f)["channelDataFor"] = UInt16[1; 2]
-		chan_1 = g_create(f, "chan_1")
+		chan_1 = create_group(f, "chan_1")
 		write(chan_1, "waveforms", real(wf_vec))
 		write(chan_1, "instructions", instrs)
-		chan_2 = g_create(f, "chan_2")
+		chan_2 = create_group(f, "chan_2")
 		write(chan_2, "waveforms", imag(wf_vec))
 	end
 end
