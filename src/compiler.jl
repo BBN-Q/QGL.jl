@@ -74,7 +74,7 @@ function compile_to_hardware(seq::Vector{T}, base_filename; suffix="") where {T}
 
 	# map the labeled channels to physical channels and bundle per APS/AWG
 	AWGs = Dict{String, Dict}()
-	chan_str_map = Dict("12"=>:ch12, "34"=>:ch34, "12m1"=>:m1, "12m2"=>:m2, "12m3"=>:m3, "12m4"=>:m4)
+	chan_str_map = Dict("ch12"=>:ch12, "ch34"=>:ch34, "12m1"=>:m1, "12m2"=>:m2, "12m3"=>:m3, "12m4"=>:m4)
 	for chan in chans
 		# get channel string from AWG-chstr convention
 		awg, chan_str = split(chan.awg_channel)
@@ -128,7 +128,7 @@ function propagate_frame_change!(seq)
 	#get a dictionary mapping qubits to edges in the sequence which hold them as target
 	chans = channels(seq)
 	seq_edges = filter(x -> typeof(x) == Edge, chans)
-	qs = qubits(seq)
+	qs = filter(x -> typeof(x) == Qubit, chans)
 	edges = Dict(q => Set{Edge}(filter(e -> e.target == q, seq_edges)) for q in qs)
 
 	# if there are no edges then we're finished here
@@ -202,16 +202,6 @@ function channels(seq)
 			for chan in keys(e.pulses)
 				push!(chans, chan)
 			end
-		end
-	end
-	return chans
-end
-
-function qubits(seq)
-	chans = channels(seq)
-	for chan in chans
-		if typeof(chan) != Qubit
-			delete!(chans, chan)
 		end
 	end
 	return chans

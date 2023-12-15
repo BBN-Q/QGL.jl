@@ -7,7 +7,7 @@ config:
 qubits:
   q1:
     measure:
-      AWG: BBNAPS1 12
+      AWG: BBNAPS1 ch12
       trigger: digitizerTrig
       receiver: q1-RawSS
       autodyne_freq: 10000000.0
@@ -19,7 +19,7 @@ qubits:
         sigma: 5.0e-09
 
     control:
-      AWG: BBNAPS2 12
+      AWG: BBNAPS2 ch12
       frequency: -50e6
       pulse_params:
         cutoff: 2.0
@@ -39,7 +39,7 @@ instruments:
     type: APS2
     master: true
     tx_channels:
-      '12':
+      ch12:
         delay: 0.0
         phase_skew: -0.03285
         amp_factor: 0.99261
@@ -64,7 +64,7 @@ instruments:
   BBNAPS2:
     type: APS2
     tx_channels:
-      '12':
+      ch12:
         delay: 0.0
         phase_skew: -0.03285
         amp_factor: 0.99261
