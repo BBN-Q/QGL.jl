@@ -178,7 +178,7 @@ function find_next_analog_entry!(entry, chan, wf_lib, analog_timestamps, id_ch, 
 	if any([id_ch[ct] > length(entry.pulses[chan[ct]]) for ct in 1:length(chan)])
 		return
 	end
-	sim_chs_id = find(x-> x == minimum(analog_timestamps), analog_timestamps)
+	sim_chs_id = findall(x-> x == minimum(analog_timestamps), analog_timestamps)
 	filter!(x->!(x in Z_chs_id), sim_chs_id)
 	pulses = []
 	for ct in sim_chs_id
@@ -196,7 +196,7 @@ function find_next_analog_entry!(entry, chan, wf_lib, analog_timestamps, id_ch, 
 		chan_select = sim_chs_id[1]
 	else
 		#select pulses on simultaneous channels
-		nonid_ids = find([!wf_lib[pulse].isTA for pulse in pulses]) #find non-Id pulses
+		nonid_ids = findall([!wf_lib[pulse].isTA for pulse in pulses]) #find non-Id pulses
 		if length(nonid_ids) > 1
 			error("Only a single non-Id channel allowed")
 		elseif length(nonid_ids) == 1
@@ -260,7 +260,7 @@ function create_instrs(seqs, wf_lib, chans, chan_freqs)
 
 						if length(chan)>1 # multiple logical channels per analog channel
 							next_entry_info = find_next_analog_entry!(entry, chan, wf_lib, analog_timestamps, analog_idx, Z_chs_id)
-							if typeof(next_entry_info) == Void
+							if typeof(next_entry_info) === nothing
 								all_done[ct] = true
 								break
 							end
