@@ -121,12 +121,6 @@ function write_sequence_file(filename, seqs, pulses, channel_map)
 			chan_freqs[ch] = ch.frequency
 			create_wf_instrs!(instr_lib, wfs, pulses[ch])
 		end
-		if haskey(channel_map, :ch34)
-			for ch in channel_map[:ch34]
-				chan_freqs[ch] = ch.frequency
-				create_wf_instrs!(instr_lib, wfs, pulses[ch])
-			end
-		end
 	end
 	for (ct, marker_chan) = enumerate([:m1, :m2, :m3, :m4])
 		if marker_chan in keys(channel_map)

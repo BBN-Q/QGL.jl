@@ -74,7 +74,7 @@ function compile_to_hardware(seq::Vector{T}, base_filename; suffix="") where {T}
 
 	# map the labeled channels to physical channels and bundle per APS/AWG
 	AWGs = Dict{String, Dict}()
-	chan_str_map = Dict("ch12"=>:ch12, "ch34"=>:ch34, "12m1"=>:m1, "12m2"=>:m2, "12m3"=>:m3, "12m4"=>:m4)
+	chan_str_map = Dict("ch12"=>:ch12, "12m1"=>:m1, "12m2"=>:m2, "12m3"=>:m3, "12m4"=>:m4)
 	for chan in chans
 		# get channel string from AWG-chstr convention
 		awg, chan_str = split(chan.awg_channel)
