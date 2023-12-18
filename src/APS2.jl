@@ -5,7 +5,7 @@ import Base: convert
 
 using HDF5
 
-import QGL
+import ..QGL
 
 import ..config
 
@@ -37,7 +37,7 @@ const PREFETCH = 0x0c
 
 const APS2Instruction = UInt64
 
-immutable Waveform
+struct Waveform
 	address::UInt32
 	count::UInt32
 	isTA::Bool
@@ -63,7 +63,7 @@ function Waveform(address, count, isTA, write_flag)
 	Waveform(addr, ct, isTA, write_flag, instr)
 end
 
-immutable Marker
+struct Marker
 	engine_select::UInt8
 	state::Bool
 	count::UInt32
@@ -89,7 +89,7 @@ function Marker(marker_select, count, state, write_flag)
 	Marker(UInt8(marker_select), state, quad_count, transition_word, write_flag, instr)
 end
 
-immutable ControlFlow
+struct ControlFlow
 	instruction::UInt64
 end
 
@@ -141,7 +141,7 @@ function create_wf_instrs!(instr_lib, wfs, pulses)
 	# TODO: better handle Id so we don't generate useless long wfs and have repeated TAZ offsets
 	idx = 0
 	for p in pulses
-		wf = p.amp * QGL.waveform(p, DAC_CLOCK)
+		wf = p.amp .* QGL.waveform(p, DAC_CLOCK)
 		if !USE_PHASE_OFFSET_INSTRUCTION
 			wf *= exp(1im * 2π * p.phase)
 		end
@@ -173,21 +173,37 @@ function create_marker_instrs!(instr_lib, pulses, marker_chan)
 	end
 end
 
+"""
+    find_next_analog_entry!(entry, chan, wf_lib, analog_timestamps, id_ch, Z_chs_id)
 
-function find_next_analog_entry!(entry, chan, wf_lib, analog_timestamps, id_ch, Z_chs_id)
-	if any([id_ch[ct] > length(entry.pulses[chan[ct]]) for ct in 1:length(chan)])
+Finds the next sequential entry in a sequence for channels that have multiple logical
+channels sharing a physical channel.
+
+`analog_timestamps` tracks the time from the start of the PulseBlock for each logical channel
+`ch_idx` tracks the index into the PulseBlock of each logical channel
+`Z_chs_ids` carries the logical channel index of the previous Z pulses
+"""
+function find_next_analog_entry!(entry, chan, wf_lib, analog_timestamps, ch_idx, Z_chs_id)
+	if all([ch_idx[ct] > length(entry.pulses[chan[ct]]) for ct in 1:length(chan)])
 		return
 	end
-	sim_chs_id = find(x-> x == minimum(analog_timestamps), analog_timestamps)
+	# get all logical channel indices that could have the next pulse
+	sim_chs_id = findall(x-> x == minimum(analog_timestamps), analog_timestamps)
 	filter!(x->!(x in Z_chs_id), sim_chs_id)
+	if length(sim_chs_id) == 0
+		# must be done...
+		return
+	end
 	pulses = []
 	for ct in sim_chs_id
-		pulse = entry.pulses[chan[ct]][id_ch[ct]]
+		pulse = entry.pulses[chan[ct]][ch_idx[ct]]
 		if typeof(pulse) == QGL.ZPulse
 			if length(sim_chs_id) > 1 #if simultaneous logical channels, remove the Z pulses one by one
 				push!(Z_chs_id, ct)
+			else
+				Z_chs_id = Int[]
 			end
-			id_ch[ct]+=1
+			ch_idx[ct] += 1
 			return pulse, Z_chs_id
 		end
 		push!(pulses, pulse)
@@ -196,21 +212,23 @@ function find_next_analog_entry!(entry, chan, wf_lib, analog_timestamps, id_ch, 
 		chan_select = sim_chs_id[1]
 	else
 		#select pulses on simultaneous channels
-		nonid_ids = find([!wf_lib[pulse].isTA for pulse in pulses]) #find non-Id pulses
+		nonid_ids = findall([!wf_lib[pulse].isTA for pulse in pulses]) #find non-Id pulses
 		if length(nonid_ids) > 1
 			error("Only a single non-Id channel allowed")
 		elseif length(nonid_ids) == 1
 			chan_select = sim_chs_id[nonid_ids[1]]
 		else #select the channel with the shortest Id
-			chan_select = sim_chs_id[indmin([pulse.length for pulse in pulses])]
+			chan_select = sim_chs_id[argmin([pulse.length for pulse in pulses])]
 		end
 	end
-	next_entry = entry.pulses[chan[chan_select]][id_ch[chan_select]]
-	for ct in sim_chs_id
-		analog_timestamps[ct] += wf_lib[entry.pulses[chan[ct]][id_ch[ct]]].count + 1
-		id_ch[ct]+=1
-	end
-	Z_chs_id = []
+	next_entry = entry.pulses[chan[chan_select]][ch_idx[chan_select]]
+	analog_timestamps[chan_select] += wf_lib[entry.pulses[chan[chan_select]][ch_idx[chan_select]]].count + 1
+	ch_idx[chan_select] += 1
+	# for ct in sim_chs_id
+	# 	analog_timestamps[ct] += wf_lib[entry.pulses[chan[ct]][ch_idx[ct]]].count + 1
+	# 	ch_idx[ct] += 1
+	# end
+	Z_chs_id = Int[]
 	return next_entry, Z_chs_id
 end
 
@@ -247,9 +265,11 @@ function create_instrs(seqs, wf_lib, chans, chan_freqs)
 				all_done[ct] = num_entries[ct] == 0
 			end
 
+			# analog_timestamps will track time delay from the start of the PulseBlock
 			analog_timestamps = zeros(Int, length(chan_freqs))
 			analog_idx = ones(Int, length(chan_freqs))
-			Z_chs_id = []
+			num_analog_entries = [length(entry.pulses[chan]) for chan in keys(chan_freqs)]
+			Z_chs_id = Int[]
 			# serialize pulses from the PulseBlock
 			# round-robin through the channels until all are exhausted
 			while !all(all_done)
@@ -258,9 +278,9 @@ function create_instrs(seqs, wf_lib, chans, chan_freqs)
 				for (ct, chan) in enumerate(chans)
 					if (!all_done[ct]) && (time_stamp[ct] <= next_instr_time)
 
-						if length(chan)>1 # multiple logical channels per analog channel
+						if length(chan) > 1 # multiple logical channels per analog channel
 							next_entry_info = find_next_analog_entry!(entry, chan, wf_lib, analog_timestamps, analog_idx, Z_chs_id)
-							if typeof(next_entry_info) == Void
+							if next_entry_info === nothing
 								all_done[ct] = true
 								break
 							end
@@ -277,7 +297,11 @@ function create_instrs(seqs, wf_lib, chans, chan_freqs)
 								push!(instrs, modulation_instr(MODULATE, nco_select[next_entry.channel], wf.count))
 							end
 							push!(instrs, wf.instruction)
-							time_stamp[ct] += wf.count+1
+							if length(chan) > 1
+								time_stamp[ct] = minimum(analog_timestamps)
+							else
+								time_stamp[ct] += wf.count+1
+							end
 						elseif typeof(next_entry) == QGL.ZPulse
 							# round phase to 28 bit integer
 							fixed_pt_phase = round(Int32, mod(-next_entry.angle, 1) * 2^28 )
@@ -354,10 +378,10 @@ function write_to_file(filename, instrs, wfs)
 		attrs(f)["target hardware"] = "APS2"
 		attrs(f)["minimum firmware version"] = 4.0
 		attrs(f)["channelDataFor"] = UInt16[1; 2]
-		chan_1 = g_create(f, "chan_1")
+		chan_1 = create_group(f, "chan_1")
 		write(chan_1, "waveforms", real(wf_vec))
 		write(chan_1, "instructions", instrs)
-		chan_2 = g_create(f, "chan_2")
+		chan_2 = create_group(f, "chan_2")
 		write(chan_2, "waveforms", imag(wf_vec))
 	end
 end

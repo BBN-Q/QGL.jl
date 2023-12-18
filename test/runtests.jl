@@ -6,7 +6,7 @@ cfg_file = joinpath(cfg_folder, "cfg_path.txt")
 # backup existing one
 restore_backup = false
 if isfile(cfg_file)
-	cp(cfg_file, cfg_file*".orig")
+	cp(cfg_file, cfg_file*".orig", force=true)
 	restore_backup = true
 end
 if !isdir(cfg_folder)
@@ -24,7 +24,7 @@ end
 # end
 
 using QGL
-using Base.Test
+using Test
 
 try
 @testset "Qubits" begin
@@ -40,7 +40,7 @@ end
 
 finally
 if restore_backup
-	mv(cfg_file*".orig", cfg_file, remove_destination=true)
+	mv(cfg_file*".orig", cfg_file, force=true)
 end
 
 end

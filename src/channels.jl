@@ -1,4 +1,5 @@
 import Base: show, ==, hash
+using Logging
 
 export Qubit, Edge, Marker
 
@@ -14,7 +15,7 @@ show(io::IO, c::Channel) = print(io, c.label)
 """
 Channel representing single qubit drive.
 """
-immutable Qubit <: Channel
+struct Qubit <: Channel
 	label::String
 	awg_channel::String
 	gate_channel::String
@@ -43,7 +44,7 @@ function Qubit(label)
 
 		Qubit(label, phys_chan, gate_chan, shape_params, q_params["frequency"])
 	else
-		warn("Unable to find Qubit label $label in channel json file. Creating default Qubit channel")
+		@warn "Unable to find Qubit label $label in channel json file. Creating default Qubit channel"
 		Qubit(label,"", "", Dict{String,Any}(), 0.0)
 	end
 
@@ -52,7 +53,7 @@ end
 """
 Channel representing a digital output marker line.
 """
-immutable Marker <: Channel
+struct Marker <: Channel
 	label::String
 	awg_channel::String
 	shape_params::Dict{Any, Any}
@@ -68,7 +69,7 @@ function Marker(label)
 end
 
 # NOTE is this mutable on purpose??
-type QuadratureAWGChannel
+mutable struct QuadratureAWGChannel
 	awg::String
 	delay::Real
 	mixer_correction::Matrix{Real}
@@ -81,7 +82,7 @@ hash(c::Channel, h::UInt) = hash(c.label, h)
 """
 Channel representing qubit measurement drive
 """
-immutable Measurement <: Channel
+struct Measurement <: Channel
 	label::String
 	awg_channel::String
 	gate_channel::String
@@ -112,7 +113,7 @@ end
 """
 Channel representing an interaction drive.
 """
-immutable Edge <: Channel
+struct Edge <: Channel
 	label::String
 	source::Qubit
 	target::Qubit
@@ -132,7 +133,7 @@ function Edge(source::Qubit, target::Qubit)
 	channel_params = get_edge_params()
 
 	edges = filter(
-		(k,v) -> v["source"] == source.label && v["target"] == target.label,
+		p -> p.second["source"] == source.label && p.second["target"] == target.label,
 		channel_params)
 
 	@assert length(edges) == 1 "Found $(length(edges)) matching edges for $source → $target"

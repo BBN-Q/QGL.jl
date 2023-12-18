@@ -10,7 +10,7 @@ export X90, X, X90m, Y90, Y, Y90m, U90, Uθ, Z90, Z, Z90m, Id, ⊗, MEAS, AC, Di
 #   - type PulseBlock
 @compat abstract type AbstractPulse end
 
-immutable Pulse <: AbstractPulse
+struct Pulse <: AbstractPulse
 	label::String
 	channel::Channel
 	length::Float64
@@ -41,9 +41,9 @@ function Pulse(
 	# WARNING! this is obviously subject to change in Julia Base
 	ml = methods(shape_params[:shape_function])
 	m = collect(ml)[1]
-	kwargs = Base.kwarg_decl(m, typeof(ml.mt.kwsorter))
+	kwargs = Base.kwarg_decl(m)
 
-	filter!((k,v) -> k == :shape_function || k in kwargs, shape_params)
+	filter!(p -> p.first == :shape_function || p.first in kwargs, shape_params)
 
 	# precompute pulse hash we'll evaluate it for each pulse we compile
 	pulse_hash = hash((label, chan, length, amp, phase, frequency, shape_params))
@@ -55,7 +55,7 @@ hash(p::Pulse, h::UInt) = hash(p.hash, h)
 
 show(io::IO, p::Pulse) = print(io, "$(p.label)($(p.channel.label))")
 
-immutable ZPulse <: AbstractPulse
+struct ZPulse <: AbstractPulse
 	label::String
 	channel::Channel
 	angle::Float64
@@ -201,16 +201,16 @@ function DiAC(q::Qubit, num)
 	return PulseBlock(Dict(q => [Z(q, angles[num][1]), X90(q), Z(q, angles[num][2]), X90(q), Z(q, angles[num][3])]))
 end
 
-type PulseBlock
+mutable struct PulseBlock
 	pulses::Dict{Channel, Vector{AbstractPulse}}
 end
 
 convert(::Type{PulseBlock}, p::AbstractPulse) = PulseBlock(Dict(p.channel => [p]))
 PulseBlock(p::AbstractPulse) = convert(PulseBlock, p)
-PulseBlock{T<:Channel}(chans::Set{T}) = PulseBlock(Dict(chan => AbstractPulse[] for chan in chans))
-PulseBlock{T<:Channel}(chans::Vector{T}) = PulseBlock(Dict(chan => AbstractPulse[] for chan in chans))
+PulseBlock(chans::Set{T}) where {T<:Channel} = PulseBlock(Dict(chan => AbstractPulse[] for chan in chans))
+PulseBlock(chans::Vector{T}) where {T<:Channel} = PulseBlock(Dict(chan => AbstractPulse[] for chan in chans))
 
-promote_rule{T<:AbstractPulse}(::Type{T}, ::Type{PulseBlock}) = PulseBlock
+promote_rule(::Type{T}, ::Type{PulseBlock}) where {T<:AbstractPulse} = PulseBlock
 
 ⊗(x::AbstractPulse, y::AbstractPulse) = PulseBlock(x) ⊗ PulseBlock(y)
 ⊗(x::PulseBlock, y::PulseBlock) = PulseBlock(merge(x.pulses, y.pulses))
