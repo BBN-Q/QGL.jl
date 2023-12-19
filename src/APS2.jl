@@ -179,7 +179,7 @@ end
 Finds the next sequential entry in a sequence for channels that have multiple logical
 channels sharing a physical channel.
 
-`analog_timestamps` tracks the time from the start of the PulseBlock for each logical channel
+`analog_timestamps` tracks the time of each logical channel
 `ch_idx` tracks the index into the PulseBlock of each logical channel
 `Z_chs_ids` carries the logical channel index of the previous Z pulses
 """
@@ -222,8 +222,11 @@ function find_next_analog_entry!(entry, chan, wf_lib, analog_timestamps, ch_idx,
 		end
 	end
 	next_entry = entry.pulses[chan[chan_select]][ch_idx[chan_select]]
-	analog_timestamps[chan_select] += wf_lib[entry.pulses[chan[chan_select]][ch_idx[chan_select]]].count + 1
-	ch_idx[chan_select] += 1
+	# only one waveplayer, so all clocks need to advance
+	for ct in sim_chs_id
+		analog_timestamps[ct] += wf_lib[entry.pulses[chan[chan_select]][ch_idx[chan_select]]].count + 1
+		ch_idx[ct] += 1
+	end
 	Z_chs_id = Int[]
 	return next_entry, Z_chs_id
 end
@@ -261,10 +264,9 @@ function create_instrs(seqs, wf_lib, chans, chan_freqs)
 				all_done[ct] = num_entries[ct] == 0
 			end
 
-			# analog_timestamps will track time delay from the start of the PulseBlock
+			# analog_timestamps will track clocks of logical channels sharing a physical channel
 			analog_timestamps = zeros(Int, length(chan_freqs))
 			analog_idx = ones(Int, length(chan_freqs))
-			num_analog_entries = [length(entry.pulses[chan]) for chan in keys(chan_freqs)]
 			Z_chs_id = Int[]
 			# serialize pulses from the PulseBlock
 			# round-robin through the channels until all are exhausted
